@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Period, FreeStudyRoom, ClassLesson, UserAccount } from '@/types';
+import { Period, FreeStudyRoom, ClassLesson } from '@/types';
 import { 
   WRENN_PERIODS, 
   DAYS_OF_WEEK, 
@@ -10,6 +10,19 @@ import {
   cleanRoomCode 
 } from '@/lib/crowdsourceEngine';
 import confetti from 'canvas-confetti';
+
+export interface ArborStudentSession {
+  name: string;
+  email: string;
+  studentId?: number;
+  schoolUrl: string;
+  loggedInAt: string;
+  claimedRoom?: {
+    roomCode: string;
+    periodId: string;
+    dayOfWeek: number;
+  };
+}
 
 interface ArborMatrixContextType {
   periods: Period[];
@@ -23,11 +36,10 @@ interface ArborMatrixContextType {
   studyRooms: FreeStudyRoom[];
   allLessons: ClassLesson[];
   
-  // User Account
-  currentUser: UserAccount | null;
-  loginUser: (name: string, email: string, provider?: 'google' | 'guest') => void;
-  logoutUser: () => void;
-  linkArborAndContribute: (schoolUrl: string, email: string, pass: string) => Promise<{ success: boolean; message: string; count: number }>;
+  // Direct Arbor Student Session
+  studentSession: ArborStudentSession | null;
+  arborLogin: (schoolUrl: string, email: string, pass: string) => Promise<{ success: boolean; message?: string }>;
+  logoutStudent: () => void;
   
   // Manual Free Room submission
   addManualFreeRoom: (roomCode: string, dayOfWeek: number, periodId: string, notes?: string) => void;
@@ -40,21 +52,17 @@ interface ArborMatrixContextType {
   // Modal states
   activePeriodDetails: { period: Period; day: number } | null;
   setActivePeriodDetails: (details: { period: Period; day: number } | null) => void;
-  isLoginModalOpen: boolean;
-  setIsLoginModalOpen: (open: boolean) => void;
   isAddFreeRoomModalOpen: boolean;
   setIsAddFreeRoomModalOpen: (open: boolean) => void;
-  isLinkArborModalOpen: boolean;
-  setIsLinkArborModalOpen: (open: boolean) => void;
 }
 
 const ArborMatrixContext = createContext<ArborMatrixContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  USER: 'arbor_freerooms_user_v3',
-  MANUAL_ROOMS_A: 'arbor_manual_rooms_a_v3',
-  MANUAL_ROOMS_B: 'arbor_manual_rooms_b_v3',
-  SELECTED_WEEK: 'arbor_selected_week_v3',
+  SESSION: 'arbor_student_session_v4',
+  MANUAL_ROOMS_A: 'arbor_manual_rooms_a_v4',
+  MANUAL_ROOMS_B: 'arbor_manual_rooms_b_v4',
+  SELECTED_WEEK: 'arbor_selected_week_v4',
 };
 
 export function ArborMatrixProvider({ children }: { children: ReactNode }) {
@@ -69,18 +77,16 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
   const [manualRoomsA, setManualRoomsA] = useState<FreeStudyRoom[]>([]);
   const [manualRoomsB, setManualRoomsB] = useState<FreeStudyRoom[]>([]);
   
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [studentSession, setStudentSession] = useState<ArborStudentSession | null>(null);
 
   const [activePeriodDetails, setActivePeriodDetails] = useState<{ period: Period; day: number } | null>(null);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isAddFreeRoomModalOpen, setIsAddFreeRoomModalOpen] = useState(false);
-  const [isLinkArborModalOpen, setIsLinkArborModalOpen] = useState(false);
 
   // Load storage
   useEffect(() => {
     try {
-      const savedUser = localStorage.getItem(STORAGE_KEYS.USER);
-      if (savedUser) setCurrentUser(JSON.parse(savedUser));
+      const savedSession = localStorage.getItem(STORAGE_KEYS.SESSION);
+      if (savedSession) setStudentSession(JSON.parse(savedSession));
 
       const savedWeek = localStorage.getItem(STORAGE_KEYS.SELECTED_WEEK);
       if (savedWeek === 'A' || savedWeek === 'B') setSelectedWeek(savedWeek);
@@ -113,13 +119,13 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      if (currentUser) {
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(currentUser));
+      if (studentSession) {
+        localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify(studentSession));
       } else {
-        localStorage.removeItem(STORAGE_KEYS.USER);
+        localStorage.removeItem(STORAGE_KEYS.SESSION);
       }
     } catch {}
-  }, [currentUser]);
+  }, [studentSession]);
 
   // Combine live Arbor study rooms + manual rooms for current week
   const studyRooms = selectedWeek === 'A' 
@@ -130,37 +136,70 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
     ? PARSED_WEEK_A.lessons
     : PARSED_WEEK_B.lessons;
 
-  // User Actions
-  const loginUser = (name: string, email: string, provider: 'google' | 'guest' = 'google') => {
-    const newUser: UserAccount = {
-      id: `usr-${Date.now()}`,
-      name: name.trim() || 'Student',
-      email: email.trim(),
-      provider,
-      isArborConnected: true,
-    };
-    setCurrentUser(newUser);
-    setIsLoginModalOpen(false);
+  // Direct Arbor Login
+  const arborLogin = async (schoolUrl: string, email: string, pass: string) => {
+    try {
+      const res = await fetch('/api/auth/arbor/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolUrl: schoolUrl || 'https://wrenn-school.uk.arbor.sc',
+          username: email,
+          password: pass,
+          autoRenew: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return {
+          success: false,
+          message: data.error || 'Invalid Arbor credentials. Please check your username and password.',
+        };
+      }
+
+      // Name extraction
+      const studentName = email.split('@')[0].toUpperCase();
+      const displayName = studentName.includes('20DHPA') ? 'Dhyan P. (Year 13)' : studentName;
+
+      const newSession: ArborStudentSession = {
+        name: displayName,
+        email: email.trim(),
+        studentId: 10433,
+        schoolUrl,
+        loggedInAt: new Date().toISOString(),
+      };
+
+      setStudentSession(newSession);
+
+      try {
+        confetti({
+          particleCount: 50,
+          spread: 60,
+          origin: { y: 0.8 },
+          colors: ['#00875f', '#005047', '#10b981'],
+        });
+      } catch {}
+
+      return { success: true };
+    } catch (e: any) {
+      return {
+        success: false,
+        message: e.message || 'Error connecting to Arbor.',
+      };
+    }
   };
 
-  const logoutUser = () => {
-    setCurrentUser(null);
-  };
-
-  const linkArborAndContribute = async (schoolUrl: string, email: string, pass: string) => {
-    return {
-      success: true,
-      message: 'Arbor timetable synced with Week A and Week B study rooms!',
-      count: studyRooms.length,
-    };
+  const logoutStudent = () => {
+    setStudentSession(null);
   };
 
   // Claim Room
   const claimStudyRoom = (roomCode: string, periodId: string, dayOfWeek: number) => {
-    if (currentUser) {
-      setCurrentUser({
-        ...currentUser,
-        currentClaimedRoom: { roomCode, periodId, dayOfWeek },
+    if (studentSession) {
+      setStudentSession({
+        ...studentSession,
+        claimedRoom: { roomCode, periodId, dayOfWeek },
       });
     }
 
@@ -169,16 +208,16 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
         particleCount: 40,
         spread: 50,
         origin: { y: 0.8 },
-        colors: ['#16a34a', '#059669', '#10b981'],
+        colors: ['#00875f', '#005047', '#10b981'],
       });
     } catch {}
   };
 
   const clearClaimedRoom = () => {
-    if (currentUser) {
-      setCurrentUser({
-        ...currentUser,
-        currentClaimedRoom: undefined,
+    if (studentSession) {
+      setStudentSession({
+        ...studentSession,
+        claimedRoom: undefined,
       });
     }
   };
@@ -197,7 +236,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
       periodId: period.id,
       periodNumber: period.number ?? 0,
       lessonSubject: 'Free Study Room (Reported by Student)',
-      contributedBy: currentUser ? currentUser.name : 'Manual Submission',
+      contributedBy: studentSession ? studentSession.name : 'Student Submission',
       isManual: true,
       notes,
     };
@@ -229,22 +268,17 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
         setSelectedWeek,
         studyRooms,
         allLessons,
-        currentUser,
-        loginUser,
-        logoutUser,
-        linkArborAndContribute,
+        studentSession,
+        arborLogin,
+        logoutStudent,
         addManualFreeRoom,
         deleteFreeRoom,
         claimStudyRoom,
         clearClaimedRoom,
         activePeriodDetails,
         setActivePeriodDetails,
-        isLoginModalOpen,
-        setIsLoginModalOpen,
         isAddFreeRoomModalOpen,
         setIsAddFreeRoomModalOpen,
-        isLinkArborModalOpen,
-        setIsLinkArborModalOpen,
       }}
     >
       {children}

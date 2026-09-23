@@ -5,12 +5,9 @@ import { useArborMatrix } from '@/context/ArborMatrixContext';
 import { 
   Calendar, 
   Plus, 
-  User, 
   LogOut, 
   School,
-  Link as LinkIcon,
-  ShieldCheck,
-  ChevronDown
+  ShieldCheck
 } from 'lucide-react';
 
 export function ArborNavbar() {
@@ -20,11 +17,9 @@ export function ArborNavbar() {
     setSelectedDay,
     selectedWeek,
     setSelectedWeek,
-    currentUser,
-    logoutUser,
-    setIsLoginModalOpen,
+    studentSession,
+    logoutStudent,
     setIsAddFreeRoomModalOpen,
-    setIsLinkArborModalOpen,
   } = useArborMatrix();
 
   return (
@@ -87,42 +82,23 @@ export function ArborNavbar() {
               <span className="hidden sm:inline">Add Free Room</span>
             </button>
 
-            {/* Sync Arbor */}
-            <button
-              onClick={() => setIsLinkArborModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-md bg-[#00875f] hover:bg-[#00704f] px-3 py-1.5 text-xs font-bold text-white shadow-2xs transition-colors"
-              title="Sync student timetable from Arbor"
-            >
-              <LinkIcon className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">Connect Arbor Account</span>
-              <span className="md:hidden">Sync Arbor</span>
-            </button>
-
-            {/* User Profile / Login */}
-            {currentUser ? (
+            {/* Student Profile & Sign Out */}
+            {studentSession && (
               <div className="flex items-center gap-2 pl-2 border-l border-emerald-700/60">
                 <div className="flex items-center gap-1.5 text-xs font-medium text-white">
                   <div className="h-7 w-7 rounded-full bg-white text-[#005047] flex items-center justify-center font-bold text-xs shadow-2xs">
-                    {currentUser.name.charAt(0).toUpperCase()}
+                    {studentSession.name.charAt(0).toUpperCase()}
                   </div>
-                  <span className="hidden lg:inline font-semibold">{currentUser.name}</span>
+                  <span className="hidden lg:inline font-semibold">{studentSession.name}</span>
                 </div>
                 <button
-                  onClick={logoutUser}
-                  title="Sign out"
+                  onClick={logoutStudent}
+                  title="Sign out of Arbor"
                   className="text-emerald-200 hover:text-white p-1"
                 >
                   <LogOut className="h-3.5 w-3.5" />
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={() => setIsLoginModalOpen(true)}
-                className="flex items-center gap-1.5 rounded-md bg-white text-[#005047] px-3 py-1.5 text-xs font-bold hover:bg-emerald-50 shadow-2xs transition-colors"
-              >
-                <User className="h-3.5 w-3.5 text-[#005047]" />
-                <span>App Sign In</span>
-              </button>
             )}
           </div>
         </div>

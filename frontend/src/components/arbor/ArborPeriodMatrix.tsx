@@ -19,10 +19,9 @@ export function ArborPeriodMatrix() {
     setSelectedDay,
     selectedWeek,
     studyRooms,
-    allLessons,
     setActivePeriodDetails,
     setIsAddFreeRoomModalOpen,
-    currentUser,
+    studentSession,
   } = useArborMatrix();
 
   const currentDayName = days.find(d => d.id === selectedDay)?.name || 'Today';
@@ -45,10 +44,10 @@ export function ArborPeriodMatrix() {
           </p>
         </div>
 
-        {currentUser?.currentClaimedRoom && currentUser.currentClaimedRoom.dayOfWeek === selectedDay && (
+        {studentSession?.claimedRoom && studentSession.claimedRoom.dayOfWeek === selectedDay && (
           <div className="inline-flex items-center gap-2 rounded-lg bg-[#e3f5ec] px-3 py-1.5 text-xs font-bold text-[#005047] border border-[#00875f]">
             <CheckCircle2 className="h-4 w-4 text-[#00875f]" />
-            <span>Currently in Room {currentUser.currentClaimedRoom.roomCode}</span>
+            <span>Currently in Room {studentSession.claimedRoom.roomCode}</span>
           </div>
         )}
       </div>
@@ -61,8 +60,8 @@ export function ArborPeriodMatrix() {
           );
 
           const isClaimedInThisPeriod = 
-            currentUser?.currentClaimedRoom?.periodId === period.id && 
-            currentUser?.currentClaimedRoom?.dayOfWeek === selectedDay;
+            studentSession?.claimedRoom?.periodId === period.id && 
+            studentSession?.claimedRoom?.dayOfWeek === selectedDay;
 
           return (
             <div

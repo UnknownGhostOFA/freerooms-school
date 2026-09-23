@@ -24,7 +24,7 @@ export function PeriodDetailModal() {
     studyRooms,
     allLessons,
     deleteFreeRoom,
-    currentUser,
+    studentSession,
     claimStudyRoom,
     clearClaimedRoom,
     setIsAddFreeRoomModalOpen,
@@ -46,8 +46,8 @@ export function PeriodDetailModal() {
   );
 
   const isClaimedHere = 
-    currentUser?.currentClaimedRoom?.periodId === period.id && 
-    currentUser?.currentClaimedRoom?.dayOfWeek === day;
+    studentSession?.claimedRoom?.periodId === period.id && 
+    studentSession?.claimedRoom?.dayOfWeek === day;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-2xs p-4 animate-in fade-in duration-150">
@@ -99,7 +99,7 @@ export function PeriodDetailModal() {
 
             <div className="space-y-2">
               {periodStudyRooms.map(room => {
-                const isSelectedByMe = currentUser?.currentClaimedRoom?.roomCode === room.roomCode && isClaimedHere;
+                const isSelectedByMe = studentSession?.claimedRoom?.roomCode === room.roomCode && isClaimedHere;
 
                 return (
                   <div
