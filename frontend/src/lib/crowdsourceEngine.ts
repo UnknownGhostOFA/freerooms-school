@@ -51,6 +51,27 @@ export function isStudyLesson(subject: string): boolean {
   );
 }
 
+/**
+ * Checks if a room has a teaching class overlap in a given period and day.
+ * Returns true if a teaching class (non-study lesson) is occupying the room.
+ */
+export function isRoomOccupiedByClass(
+  roomCode: string,
+  dayOfWeek: number,
+  periodId: string,
+  allLessons: ClassLesson[]
+): boolean {
+  const clean = cleanRoomCode(roomCode);
+  if (!clean) return false;
+  return allLessons.some(
+    lesson =>
+      lesson.dayOfWeek === dayOfWeek &&
+      lesson.periodId === periodId &&
+      cleanRoomCode(lesson.roomCode) === clean &&
+      !lesson.isStudy
+  );
+}
+
 // Process Week A and Week B raw lessons with exact day mapping based on Form time (08:40)
 function processRawWeek(rawEvents: any[], weekType: 'A' | 'B'): { studyRooms: FreeStudyRoom[]; lessons: ClassLesson[] } {
   const studyRooms: FreeStudyRoom[] = [];
