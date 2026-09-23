@@ -1,0 +1,32 @@
+
+
+.page-intro-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    background: #fff !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity .7s ease;
+}
+.page-intro-overlay.is-gone {
+    opacity: 0;
+    pointer-events: none;
+}
+.page-intro-lottie {
+
+    width:  clamp(80px, 14vmin, 200px);
+    height: clamp(80px, 14vmin, 200px);
+}
+
+.page-intro-lottie svg {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    background: transparent !important;
+}
+
+body:has(.page-intro-overlay) #cursor-dot {
+    z-index: 1000000;
+}

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>404 — Maxime Ducret</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="only light">
+    <meta name="description" content="You found a hidden page — a playful 404 with a surprise game inside.">
+    <meta name="theme-color" content="#ffffff">
+
+    <style>html,body{background:#fff;margin:0;padding:0;overflow:hidden;width:100%;height:100%;}</style>
+    <link rel="preload" href="./RESSOURCES/FONTS/PracticalGrotesk-Variable.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" type="text/css" href="./CSS/fonts.css">
+    <link rel="stylesheet" type="text/css" href="./CSS/404.css">
+    <link rel="stylesheet" type="text/css" href="./CSS/page-intro.css">
+</head>
+
+<body>
+
+<div id="page-intro" class="page-intro-overlay" aria-hidden="true">
+    <div class="page-intro-lottie"></div>
+</div>
+
+<div id="intro-text-overlay" aria-hidden="true">
+    <p class="intro-line" data-text="You've stepped outside the intended architecture."></p>
+    <p class="intro-line" data-text="Rotate the board. Let it fall. Find the exit."></p>
+</div>
+
+<div id="outro-text-overlay" aria-hidden="true">
+    <p class="intro-line" data-text="Exit found."></p>
+    <p class="intro-line" data-text="You have successfully navigated back to the intended architecture."></p>
+    <p class="intro-line" data-text="The path back is now open. Head home" data-link-words="2" data-link-href="/" data-preview="./RESSOURCES/IMAGE/thumbnail/404.webp" data-preview-label="Home"></p>
+</div>
+
+<div id="cursor-dot"></div>
+<div id="followBox404" class="follow-box-404" style="display:none"></div>
+
+<div id="game-wrapper">
+
+    <div id="game-core">
+
+        <div id="game-header" class="pre-intro">
+            <span id="game-score">Moves: 0</span>
+            <span id="game-title">404</span>
+            <span id="game-level">Tutorial</span>
+        </div>
+
+        <div id="board-container">
+
+            <div id="board" class="pre-reveal"></div>
+
+            <div id="victory-overlay">
+                <div id="victory-title">Level complete</div>
+                <div id="victory-msg"></div>
+                <button class="btn" id="btn-next">Next level →</button>
+            </div>
+        </div>
+
+        <div id="game-controls">
+            <button class="btn btn-intro-pre" id="btn-left" data-text="← → to rotate">← Left</button>
+            <button class="btn ghost btn-intro-pre" id="btn-reset" data-text="R to restart">Restart</button>
+            <button class="btn btn-intro-pre" id="btn-right" data-text="← → to rotate">Right →</button>
+        </div>
+
+    </div>
+
+    <div id="game-hints">
+        <div id="game-home-row">
+            <a aria-label="Home" id="btn-home" class="btn ghost btn-intro-pre" href="/" data-text="Back home">Home</a>
+        </div>
+        <div id="game-hint"></div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/lottie-web@5.12.2/build/player/lottie_light.min.js" defer></script>
+<script src="./SCRIPT/page-intro.js" defer></script>
+<script src="./SCRIPT/ismobile.js" defer></script>
+<script src="./SCRIPT/404.js"></script>
+</body>
+</html>
