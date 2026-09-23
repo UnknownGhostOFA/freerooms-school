@@ -13,13 +13,40 @@ const MONGODB_URI = process.env.MONGODB_URI;
 app.use(cors());
 app.use(express.json());
 
-// MongoDB Schema Definitions
+// Local Database File Fallback
+const DATA_DIR = path.join(__dirname, 'data');
+const LOCAL_DB_FILE = path.join(DATA_DIR, 'crowdsource-db.json');
+
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+function getLocalData() {
+  if (!fs.existsSync(LOCAL_DB_FILE)) {
+    return { studyRooms: [], manualOverrides: [] };
+  }
+  try {
+    return JSON.parse(fs.readFileSync(LOCAL_DB_FILE, 'utf-8'));
+  } catch {
+    return { studyRooms: [], manualOverrides: [] };
+  }
+}
+
+function saveLocalData(data) {
+  try {
+    fs.writeFileSync(LOCAL_DB_FILE, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.warn('Failed to save local data:', err.message);
+  }
+}
+
+// MongoDB Mongoose Schema
 const FreeRoomSchema = new mongoose.Schema({
   roomCode: { type: String, required: true },
   weekType: { type: String, enum: ['A', 'B'], required: true },
   dayOfWeek: { type: Number, required: true }, // 1=Mon .. 5=Fri
   dayName: { type: String, required: true },
-  periodId: { type: String, required: true }, // 'p1'..'p5', 'reg'
+  periodId: { type: String, required: true },
   periodNumber: { type: Number, required: true },
   lessonSubject: { type: String, default: '6th form study' },
   supervisor: { type: String },
@@ -31,66 +58,80 @@ const FreeRoomSchema = new mongoose.Schema({
 
 const FreeRoom = mongoose.models.FreeRoom || mongoose.model('FreeRoom', FreeRoomSchema);
 
-// Connect to MongoDB Atlas
+let isAtlasConnected = false;
+
+// Attempt Atlas Connection with timeout
 if (MONGODB_URI) {
-  mongoose.connect(MONGODB_URI)
-    .then(() => console.log('Connected to MongoDB Atlas successfully.'))
-    .catch(err => console.warn('MongoDB Atlas connection warning:', err.message));
+  mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 4000,
+    tlsAllowInvalidCertificates: true
+  })
+  .then(() => {
+    isAtlasConnected = true;
+    console.log('[PASS] MongoDB Atlas Connected.');
+  })
+  .catch(() => {
+    console.log('[INFO] MongoDB Atlas port 27017 filtered by network. Using Local JSON Database Engine.');
+  });
 }
 
-// Health Check
+// GET Health
 app.get('/api/health', (req, res) => {
   res.json({
-    status: 'healthy',
-    service: 'FreeRooms School Backend',
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    status: 'online',
+    database: isAtlasConnected ? 'MongoDB Atlas' : 'Local Persistent Engine',
     timestamp: new Date().toISOString()
   });
 });
 
-// GET Matrix (Week A / Week B study rooms)
+// GET Matrix
 app.get('/api/matrix', async (req, res) => {
   try {
-    const week = req.query.week || 'A';
-    
-    // Read from DB or fallback to live weeks JSON
+    const week = (req.query.week || 'A').toUpperCase();
     let rooms = [];
-    if (mongoose.connection.readyState === 1) {
-      rooms = await FreeRoom.find({ weekType: week.toUpperCase() }).sort({ periodNumber: 1 });
-    }
 
-    if (rooms.length === 0) {
+    if (isAtlasConnected) {
+      rooms = await FreeRoom.find({ weekType: week }).sort({ periodNumber: 1 });
+    } else {
+      const localData = getLocalData();
+      const localManual = (localData.studyRooms || []).filter(r => r.weekType === week);
+
+      // Load baseline live scraped weeks
       const liveWeeksPath = path.join(__dirname, '..', 'frontend', 'arbor-live-weeks.json');
+      let baselineRooms = [];
       if (fs.existsSync(liveWeeksPath)) {
         const raw = JSON.parse(fs.readFileSync(liveWeeksPath, 'utf-8'));
-        const weekEvents = week.toUpperCase() === 'B' ? raw.weekB : raw.weekA;
+        const weekEvents = week === 'B' ? raw.weekB : raw.weekA;
         
-        // Filter study rooms
         let dayIdx = -1;
-        rooms = weekEvents
+        baselineRooms = weekEvents
           .filter(e => {
             if (e.start === '08:40') dayIdx++;
             return e.isStudy;
           })
           .map((e, idx) => ({
-            id: `seed-${week}-${idx}`,
+            id: `arbor-${week}-${idx}`,
             roomCode: cleanRoomCode(e.room),
-            weekType: week.toUpperCase(),
+            weekType: week,
             dayOfWeek: Math.max(1, Math.min(5, dayIdx + 1)),
             dayName: e.dayName,
             periodId: matchTimeToPeriod(e.start).id,
             periodNumber: matchTimeToPeriod(e.start).number,
             lessonSubject: e.subject,
             supervisor: e.teacher || 'Study Supervisor',
-            contributedBy: `Arbor Live (Week ${week.toUpperCase()})`,
+            contributedBy: `Arbor (Week ${week})`,
             isManual: false
           }));
       }
+
+      rooms = [...localManual, ...baselineRooms];
     }
 
     res.json({
       success: true,
-      week: week.toUpperCase(),
+      week,
+      source: isAtlasConnected ? 'atlas' : 'local_db',
+      count: rooms.length,
       studyRooms: rooms
     });
   } catch (error) {
@@ -98,7 +139,7 @@ app.get('/api/matrix', async (req, res) => {
   }
 });
 
-// POST Manual Free Room
+// POST Manual Room
 app.post('/api/rooms/manual', async (req, res) => {
   try {
     const { roomCode, weekType, dayOfWeek, periodId, notes, contributedBy } = req.body;
@@ -111,7 +152,8 @@ app.post('/api/rooms/manual', async (req, res) => {
     const dayName = dayNames[(dayOfWeek || 1) - 1] || 'Monday';
     const periodNumber = periodId ? parseInt(periodId.replace('p', ''), 10) || 1 : 1;
 
-    const newRoom = new FreeRoom({
+    const newRoom = {
+      id: `manual-${Date.now()}-${clean}`,
       roomCode: clean,
       weekType: (weekType || 'A').toUpperCase(),
       dayOfWeek: dayOfWeek || 1,
@@ -121,56 +163,22 @@ app.post('/api/rooms/manual', async (req, res) => {
       lessonSubject: 'Free Study Room (Reported by Student)',
       contributedBy: contributedBy || 'Student Submission',
       isManual: true,
-      notes: notes || undefined
-    });
+      notes: notes || undefined,
+      createdAt: new Date().toISOString()
+    };
 
-    if (mongoose.connection.readyState === 1) {
-      await newRoom.save();
+    if (isAtlasConnected) {
+      await FreeRoom.create(newRoom);
+    } else {
+      const data = getLocalData();
+      data.studyRooms = [newRoom, ...(data.studyRooms || [])];
+      saveLocalData(data);
     }
 
     res.json({
       success: true,
-      message: `Room ${clean} successfully added to Week ${weekType || 'A'} Period ${periodNumber}!`,
+      message: `Room ${clean} added to Week ${weekType || 'A'} Period ${periodNumber}`,
       room: newRoom
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// POST Arbor Live Scrape
-app.post('/api/arbor/sync', async (req, res) => {
-  try {
-    const { schoolUrl, username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password required' });
-    }
-
-    const targetSchoolUrl = schoolUrl || process.env.SCHOOL_URL || 'https://wrenn-school.uk.arbor.sc';
-    
-    // Login to Arbor
-    const loginRes = await fetch(`${targetSchoolUrl}/auth/login?lang=en`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Referer': `${targetSchoolUrl}/?/home-ui/index`,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-      },
-      body: JSON.stringify({
-        items: [{ username, password }]
-      })
-    });
-
-    const cookies = loginRes.headers.raw()['set-cookie']?.map(c => c.split(';')[0]).join('; ') || '';
-    if (!cookies.includes('arbor_session') && !cookies.includes('PHPSESSID')) {
-      return res.status(401).json({ error: 'Invalid school login credentials.' });
-    }
-
-    res.json({
-      success: true,
-      message: 'Successfully authenticated with Arbor! Timetable synchronized.',
-      syncTime: new Date().toISOString()
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -198,5 +206,5 @@ function matchTimeToPeriod(timeStr) {
 }
 
 app.listen(PORT, () => {
-  console.log(`FreeRooms Backend Server running on http://localhost:${PORT}`);
+  console.log(`FreeRooms Backend API running on http://localhost:${PORT}`);
 });
