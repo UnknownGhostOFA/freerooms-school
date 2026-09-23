@@ -9,13 +9,30 @@ import { PeriodDetailModal } from '@/components/arbor/PeriodDetailModal';
 import { AddFreeRoomModal } from '@/components/arbor/AddFreeRoomModal';
 
 function MainDashboard() {
-  const { studentSession } = useArborMatrix();
+  const { studentSession, isHydrated } = useArborMatrix();
 
-  // If not logged in with Arbor, show Arbor School Login page
+  // 1. While reading session from storage on first mount, show clean Arbor loading indicator (Prevents any login flash)
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-[#f4f6f5] flex items-center justify-center font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-[#005047] text-white font-black text-xl flex items-center justify-center shadow-xs animate-pulse">
+            A
+          </div>
+          <span className="text-xs font-bold text-[#596560] tracking-wider uppercase font-mono">
+            Loading FreeRooms...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. If not logged in after hydration, show Arbor School Login
   if (!studentSession) {
     return <ArborLoginPage />;
   }
 
+  // 3. Logged in: Render full Arbor Period Matrix
   return (
     <div className="min-h-screen bg-[#f4f6f5] text-[#1b2129] flex flex-col font-sans">
       {/* Arbor Navbar */}

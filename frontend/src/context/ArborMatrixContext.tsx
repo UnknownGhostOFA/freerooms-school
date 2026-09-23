@@ -24,6 +24,7 @@ export interface ArborStudentSession {
 }
 
 interface ArborMatrixContextType {
+  isHydrated: boolean;
   periods: Period[];
   days: typeof DAYS_OF_WEEK;
   selectedDay: number; // 1=Mon .. 5=Fri
@@ -374,6 +375,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
   return (
     <ArborMatrixContext.Provider
       value={{
+        isHydrated,
         periods: WRENN_PERIODS,
         days: DAYS_OF_WEEK,
         selectedDay,
