@@ -2,12 +2,12 @@
 
 import React from 'react';
 import { useArborMatrix } from '@/context/ArborMatrixContext';
-import { 
-  Calendar, 
-  Plus, 
-  LogOut, 
-  School,
-  ShieldCheck
+import {
+  Calendar,
+  Plus,
+  LogOut,
+  Clock,
+  Sparkles
 } from 'lucide-react';
 
 export function ArborNavbar() {
@@ -17,6 +17,8 @@ export function ArborNavbar() {
     setSelectedDay,
     selectedWeek,
     setSelectedWeek,
+    liveCurrentWeek,
+    currentDateFormatted,
     studentSession,
     logoutStudent,
     setIsAddFreeRoomModalOpen,
@@ -26,8 +28,8 @@ export function ArborNavbar() {
     <header className="sticky top-0 z-40 w-full shadow-xs">
       {/* 1. Main Arbor Green MIS Header */}
       <div className="bg-[#005047] text-white px-4 py-2.5 sm:px-6">
-        <div className="mx-auto max-w-7xl flex items-center justify-between">
-          {/* Brand */}
+        <div className="mx-auto max-w-7xl flex items-center justify-between gap-2">
+          {/* Brand & Live Date */}
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-[#005047] font-black text-lg shadow-sm">
               <span className="leading-none">A</span>
@@ -41,33 +43,40 @@ export function ArborNavbar() {
                   Arbor FreeRooms
                 </span>
               </div>
-              <p className="text-[11px] text-emerald-200/80 leading-none mt-0.5">
-                6th Form Study Matrix & Free Classrooms
+              <p className="text-[11px] text-emerald-200/90 leading-none mt-0.5 flex items-center gap-1.5">
+                <Clock className="h-3 w-3 inline text-emerald-300" />
+                <span>{currentDateFormatted}</span>
               </p>
             </div>
           </div>
 
-          {/* Center: Week A / Week B Switcher */}
+          {/* Center: Week A / Week B Switcher with Live Week Indicator */}
           <div className="flex items-center rounded-md bg-[#003d36] p-1 border border-emerald-700/40 text-xs font-bold">
             <button
               onClick={() => setSelectedWeek('A')}
-              className={`rounded px-3 py-1 transition-all ${
+              className={`rounded px-3 py-1 transition-all flex items-center gap-1.5 ${
                 selectedWeek === 'A'
                   ? 'bg-white text-[#005047] shadow-xs'
                   : 'text-emerald-100 hover:text-white'
               }`}
             >
-              Week A
+              <span>Week A</span>
+              {liveCurrentWeek === 'A' && (
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" title="Current Academic Week" />
+              )}
             </button>
             <button
               onClick={() => setSelectedWeek('B')}
-              className={`rounded px-3 py-1 transition-all ${
+              className={`rounded px-3 py-1 transition-all flex items-center gap-1.5 ${
                 selectedWeek === 'B'
                   ? 'bg-white text-[#005047] shadow-xs'
                   : 'text-emerald-100 hover:text-white'
               }`}
             >
-              Week B
+              <span>Week B</span>
+              {liveCurrentWeek === 'B' && (
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" title="Current Academic Week" />
+              )}
             </button>
           </div>
 
@@ -82,23 +91,16 @@ export function ArborNavbar() {
               <span className="hidden sm:inline">Add Free Room</span>
             </button>
 
-            {/* Student Profile & Sign Out */}
+            {/* Anonymous Sign Out */}
             {studentSession && (
-              <div className="flex items-center gap-2 pl-2 border-l border-emerald-700/60">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-white">
-                  <div className="h-7 w-7 rounded-full bg-white text-[#005047] flex items-center justify-center font-bold text-xs shadow-2xs">
-                    {studentSession.name.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="hidden lg:inline font-semibold">{studentSession.name}</span>
-                </div>
-                <button
-                  onClick={logoutStudent}
-                  title="Sign out of Arbor"
-                  className="text-emerald-200 hover:text-white p-1"
-                >
-                  <LogOut className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              <button
+                onClick={logoutStudent}
+                title="Sign out of session"
+                className="flex items-center gap-1 text-emerald-200 hover:text-white px-2 py-1 rounded hover:bg-[#003d36] text-xs font-semibold transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="hidden md:inline">Sign Out</span>
+              </button>
             )}
           </div>
         </div>
@@ -110,6 +112,8 @@ export function ArborNavbar() {
           <div className="flex items-center space-x-1 overflow-x-auto py-1.5 scrollbar-none">
             {days.map(d => {
               const isSelected = selectedDay === d.id;
+              const isToday = new Date().getDay() === d.id;
+
               return (
                 <button
                   key={d.id}
@@ -122,14 +126,23 @@ export function ArborNavbar() {
                 >
                   <Calendar className="h-3 w-3" />
                   <span>{d.name}</span>
+                  {isToday && (
+                    <span className={`text-[9px] px-1 py-0.2 rounded font-mono ${
+                      isSelected ? 'bg-white/20 text-white' : 'bg-emerald-100 text-[#005047]'
+                    }`}>
+                      TODAY
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
 
           <div className="hidden sm:flex items-center gap-2 text-xs text-[#596560]">
-            <span>Active Cycle:</span>
-            <span className="font-bold text-[#005047]">Week {selectedWeek}</span>
+            <span>Active View:</span>
+            <span className="font-bold text-[#005047]">
+              Week {selectedWeek} {selectedWeek === liveCurrentWeek ? '(Current Week)' : ''}
+            </span>
           </div>
         </div>
       </div>

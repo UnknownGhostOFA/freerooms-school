@@ -39,6 +39,31 @@ export function cleanRoomCode(raw: string): string {
   return clean.toUpperCase();
 }
 
+/**
+ * Calculates whether the current date falls on Week A or Week B
+ * based on the UK academic term calendar (alternating 2-week cycle).
+ */
+export function getCurrentSchoolWeek(now = new Date()): 'A' | 'B' {
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return weekNo % 2 === 1 ? 'A' : 'B';
+}
+
+/**
+ * Returns formatted current date string e.g. "Wednesday, 23 September 2026"
+ */
+export function getFormattedCurrentDate(now = new Date()): string {
+  return now.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+}
+
 export function isStudyLesson(subject: string): boolean {
   if (!subject) return false;
   const s = subject.toLowerCase();

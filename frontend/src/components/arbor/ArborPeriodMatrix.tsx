@@ -6,8 +6,8 @@ import {
   ChevronRight,
   Plus,
   RefreshCw,
-  Building,
-  CheckCircle2
+  Calendar,
+  Clock
 } from 'lucide-react';
 
 export function ArborPeriodMatrix() {
@@ -17,6 +17,8 @@ export function ArborPeriodMatrix() {
     selectedDay,
     setSelectedDay,
     selectedWeek,
+    liveCurrentWeek,
+    currentDateFormatted,
     studyRooms,
     setActivePeriodDetails,
     setIsAddFreeRoomModalOpen,
@@ -31,16 +33,20 @@ export function ArborPeriodMatrix() {
       {/* Title Header Banner (Arbor Style) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#dbe1dd] bg-white p-4 rounded-xl shadow-2xs">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-lg font-bold text-[#1b2129] tracking-tight">
               {currentDayName}&apos;s Free Study Rooms
             </h1>
             <span className="text-xs font-bold px-2.5 py-0.5 rounded bg-[#e3f5ec] text-[#005047] border border-[#00875f]/30">
-              Week {selectedWeek} • Periods 1 – 5
+              Week {selectedWeek} {selectedWeek === liveCurrentWeek ? '• Active Week' : ''}
+            </span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#f2f5f3] text-[#596560] border border-[#dbe1dd] hidden sm:inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              <span>{currentDateFormatted}</span>
             </span>
           </div>
           <p className="text-xs text-[#596560] mt-0.5">
-            Real-time study spaces with zero class overlaps. Auto-refreshes every 5 mins.
+            Real-time anonymous study spaces with zero class overlaps. Auto-refreshes every 5 mins.
           </p>
         </div>
 
@@ -142,7 +148,7 @@ export function ArborPeriodMatrix() {
               Week {selectedWeek} Complete Free Rooms Matrix
             </h2>
             <p className="text-xs text-[#596560]">
-              Mon – Fri overview across all school periods
+              Mon – Fri overview across all school periods • {currentDateFormatted}
             </p>
           </div>
 
@@ -158,11 +164,17 @@ export function ArborPeriodMatrix() {
             <thead>
               <tr className="bg-[#f2f5f3] border-b border-[#dbe1dd] text-[#1b2129] font-bold">
                 <th className="p-3 font-extrabold w-28">Period</th>
-                {days.map(day => (
-                  <th key={day.id} className="p-3 font-extrabold border-l border-[#dbe1dd]">
-                    {day.name}
-                  </th>
-                ))}
+                {days.map(day => {
+                  const isToday = new Date().getDay() === day.id;
+                  return (
+                    <th key={day.id} className={`p-3 font-extrabold border-l border-[#dbe1dd] ${isToday ? 'bg-emerald-50 text-[#005047]' : ''}`}>
+                      <div className="flex items-center gap-1.5">
+                        <span>{day.name}</span>
+                        {isToday && <span className="text-[9px] px-1 bg-emerald-200/70 text-[#005047] rounded font-mono">TODAY</span>}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#eaeeec]">

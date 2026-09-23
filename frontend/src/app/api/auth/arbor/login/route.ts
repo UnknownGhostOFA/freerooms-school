@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
           periodNumber: period.number ?? 1,
           lessonSubject: b.subject || '6th form study',
           supervisor: b.teacher || 'Study Supervisor',
-          contributedBy: `${studentName} (Arbor Sync)`,
+          contributedBy: 'Anonymous Submission',
           isManual: false,
         });
 
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
           periodNumber: period.number ?? 1,
           lessonSubject: b.subject || '6th form study',
           supervisor: b.teacher || 'Study Supervisor',
-          contributedBy: `${studentName} (Arbor Sync)`,
+          contributedBy: 'Anonymous Submission',
           isManual: false,
         });
       }

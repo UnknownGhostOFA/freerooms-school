@@ -50,7 +50,7 @@ function MainDashboard() {
             Wrenn School FreeRooms • Arbor 6th Form Study Timetable Matrix
           </p>
           <div className="text-[#78827e] text-[11px]">
-            Connected as <strong className="text-[#005047]">{studentSession.name}</strong>
+            Anonymous Community Study Platform
           </div>
         </div>
         <div className="mx-auto max-w-7xl px-4 mt-2 text-[10px] text-[#8c9692]">

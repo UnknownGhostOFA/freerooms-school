@@ -8,12 +8,14 @@ import {
   PARSED_WEEK_A,
   PARSED_WEEK_B,
   cleanRoomCode,
-  isRoomOccupiedByClass
+  isRoomOccupiedByClass,
+  getCurrentSchoolWeek,
+  getFormattedCurrentDate
 } from '@/lib/crowdsourceEngine';
 import confetti from 'canvas-confetti';
 
 // Versioning stamp: forces fresh login on each new deployment
-const APP_DEPLOY_BUILD = 'freerooms_deploy_v9_prod';
+const APP_DEPLOY_BUILD = 'freerooms_deploy_v10_prod';
 
 export interface ArborStudentSession {
   name: string;
@@ -31,6 +33,8 @@ interface ArborMatrixContextType {
   setSelectedDay: (d: number) => void;
   selectedWeek: 'A' | 'B';
   setSelectedWeek: (w: 'A' | 'B') => void;
+  liveCurrentWeek: 'A' | 'B';
+  currentDateFormatted: string;
 
   // Filtered Study Rooms (NO overlaps with scheduled teaching classes) & Classes
   studyRooms: FreeStudyRoom[];
@@ -41,7 +45,7 @@ interface ArborMatrixContextType {
   arborLogin: (schoolUrl: string, email: string, pass: string) => Promise<{ success: boolean; message?: string }>;
   logoutStudent: () => void;
 
-  // Manual Free Room submission (Instant UI update + MongoDB Atlas sync)
+  // Manual Free Room submission (Instant UI update + Anonymous MongoDB Atlas sync)
   addManualFreeRoom: (roomCode: string, dayOfWeek: number, periodId: string, notes?: string) => { success: boolean; error?: string };
   deleteFreeRoom: (id: string) => void;
 
@@ -59,15 +63,19 @@ interface ArborMatrixContextType {
 const ArborMatrixContext = createContext<ArborMatrixContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  BUILD_VERSION: 'arbor_deploy_build_v9',
-  SESSION: 'arbor_student_session_v9',
-  MANUAL_ROOMS_A: 'arbor_manual_rooms_a_v9',
-  MANUAL_ROOMS_B: 'arbor_manual_rooms_b_v9',
-  SELECTED_WEEK: 'arbor_selected_week_v9',
+  BUILD_VERSION: 'arbor_deploy_build_v10',
+  SESSION: 'arbor_student_session_v10',
+  MANUAL_ROOMS_A: 'arbor_manual_rooms_a_v10',
+  MANUAL_ROOMS_B: 'arbor_manual_rooms_b_v10',
+  SELECTED_WEEK: 'arbor_selected_week_v10',
 };
 
 export function ArborMatrixProvider({ children }: { children: ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
+
+  // Live real-time academic calendar data
+  const liveCurrentWeek = getCurrentSchoolWeek();
+  const currentDateFormatted = getFormattedCurrentDate();
 
   const [selectedDay, setSelectedDay] = useState<number>(() => {
     const today = new Date().getDay();
@@ -75,7 +83,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
     return 1;
   });
 
-  const [selectedWeek, setSelectedWeek] = useState<'A' | 'B'>('A');
+  const [selectedWeek, setSelectedWeek] = useState<'A' | 'B'>(() => liveCurrentWeek);
   const [manualRoomsA, setManualRoomsA] = useState<FreeStudyRoom[]>([]);
   const [manualRoomsB, setManualRoomsB] = useState<FreeStudyRoom[]>([]);
   const [studentSession, setStudentSession] = useState<ArborStudentSession | null>(null);
@@ -99,11 +107,11 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
             const map = new Map<string, FreeStudyRoom>();
             prev.forEach(r => {
               const code = cleanRoomCode(r.roomCode);
-              if (code) map.set(`${code}-${r.dayOfWeek}-${r.periodId}`, { ...r, roomCode: code });
+              if (code) map.set(`${code}-${r.dayOfWeek}-${r.periodId}`, { ...r, roomCode: code, contributedBy: 'Anonymous Submission' });
             });
             dataA.studyRooms.forEach((r: FreeStudyRoom) => {
               const code = cleanRoomCode(r.roomCode);
-              if (code) map.set(`${code}-${r.dayOfWeek}-${r.periodId}`, { ...r, roomCode: code });
+              if (code) map.set(`${code}-${r.dayOfWeek}-${r.periodId}`, { ...r, roomCode: code, contributedBy: 'Anonymous Submission' });
             });
             return Array.from(map.values());
           });
@@ -117,11 +125,11 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
             const map = new Map<string, FreeStudyRoom>();
             prev.forEach(r => {
               const code = cleanRoomCode(r.roomCode);
-              if (code) map.set(`${code}-${r.dayOfWeek}-${r.periodId}`, { ...r, roomCode: code });
+              if (code) map.set(`${code}-${r.dayOfWeek}-${r.periodId}`, { ...r, roomCode: code, contributedBy: 'Anonymous Submission' });
             });
             dataB.studyRooms.forEach((r: FreeStudyRoom) => {
               const code = cleanRoomCode(r.roomCode);
-              if (code) map.set(`${code}-${r.dayOfWeek}-${r.periodId}`, { ...r, roomCode: code });
+              if (code) map.set(`${code}-${r.dayOfWeek}-${r.periodId}`, { ...r, roomCode: code, contributedBy: 'Anonymous Submission' });
             });
             return Array.from(map.values());
           });
@@ -150,7 +158,11 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
       }
 
       const savedWeek = localStorage.getItem(STORAGE_KEYS.SELECTED_WEEK);
-      if (savedWeek === 'A' || savedWeek === 'B') setSelectedWeek(savedWeek);
+      if (savedWeek === 'A' || savedWeek === 'B') {
+        setSelectedWeek(savedWeek);
+      } else {
+        setSelectedWeek(liveCurrentWeek);
+      }
 
       const savedA = localStorage.getItem(STORAGE_KEYS.MANUAL_ROOMS_A);
       if (savedA) {
@@ -178,7 +190,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
     }, 5 * 60 * 1000); // every 5 minutes
 
     return () => clearInterval(interval);
-  }, [fetchRemoteRooms]);
+  }, [fetchRemoteRooms, liveCurrentWeek]);
 
   // Save to localStorage ONLY AFTER hydration
   useEffect(() => {
@@ -232,6 +244,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
       dedupedMap.set(key, {
         ...room,
         roomCode: clean,
+        contributedBy: 'Anonymous Submission'
       });
     }
   });
@@ -263,12 +276,8 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      // Name extraction
-      const studentName = email.split('@')[0].toUpperCase();
-      const displayName = studentName || 'Student';
-
       const newSession: ArborStudentSession = {
-        name: displayName,
+        name: 'Student',
         email: email.trim(),
         studentId: 10433,
         schoolUrl,
@@ -315,7 +324,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    const period = WRENN_PERIODS.find(p => p.id === periodId) || WRENN_PERIODS[1];
+    const period = WRENN_PERIODS.find(p => p.id === periodId) || WRENN_PERIODS[0];
     const dayObj = DAYS_OF_WEEK.find(d => d.id === dayOfWeek) || DAYS_OF_WEEK[0];
     const roomId = `manual-${selectedWeek}-${Date.now()}-${cleanCode}`;
 
@@ -325,9 +334,9 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
       dayOfWeek,
       dayName: dayObj.name,
       periodId: period.id,
-      periodNumber: period.number ?? 0,
-      lessonSubject: 'Free Study Room (Reported by Student)',
-      contributedBy: studentSession ? studentSession.name : 'Student Submission',
+      periodNumber: period.number ?? 1,
+      lessonSubject: 'Free Study Room',
+      contributedBy: 'Anonymous Submission',
       isManual: true,
       notes,
     };
@@ -340,7 +349,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
     }
     setIsAddFreeRoomModalOpen(false);
 
-    // Save asynchronously to MongoDB Atlas
+    // Save anonymously to MongoDB Atlas
     fetch('/api/rooms/manual', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -351,7 +360,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
         dayOfWeek,
         periodId: period.id,
         notes,
-        contributedBy: studentSession ? studentSession.name : 'Student Submission',
+        contributedBy: 'Anonymous Submission',
       }),
     }).catch(err => {
       console.warn('Backend sync failed, saved in client storage:', err);
@@ -382,6 +391,8 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
         setSelectedDay,
         selectedWeek,
         setSelectedWeek,
+        liveCurrentWeek,
+        currentDateFormatted,
         studyRooms,
         allLessons,
         studentSession,

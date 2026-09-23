@@ -108,9 +108,11 @@ export function PeriodDetailModal() {
                       <div className="text-[11px] text-[#4d5954]">
                         {room.lessonSubject} {room.supervisor ? `• ${room.supervisor}` : ''}
                       </div>
-                      <div className="text-[10px] text-[#78827e] mt-0.5">
-                        Source: {room.contributedBy}
-                      </div>
+                      {room.notes && (
+                        <div className="text-[10px] text-[#78827e] mt-0.5">
+                          Note: {room.notes}
+                        </div>
+                      )}
                     </div>
                   </div>
 
