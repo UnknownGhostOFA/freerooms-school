@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useArborMatrix } from '@/context/ArborMatrixContext';
-import { User, X, Sparkles, Check, School } from 'lucide-react';
+import { User, X, Sparkles, Check, School, Shield } from 'lucide-react';
 
 export function AppLoginModal() {
   const { isLoginModalOpen, setIsLoginModalOpen, loginUser } = useArborMatrix();
@@ -13,7 +13,7 @@ export function AppLoginModal() {
   if (!isLoginModalOpen) return null;
 
   const handleGoogleSim = () => {
-    loginUser('Student User', 'student@school.org.uk', 'google');
+    loginUser('Student User', 'student@wrennschool.org.uk', 'google');
   };
 
   const handleCustomLogin = (e: React.FormEvent) => {
@@ -23,25 +23,25 @@ export function AppLoginModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-2xs p-4 animate-in fade-in duration-150">
+      <div className="relative w-full max-w-sm rounded-xl border border-[#dbe1dd] bg-white p-6 shadow-xl">
+        <div className="flex items-center justify-between pb-4 border-b border-[#eaeeec]">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+            <div className="flex h-8 w-8 items-center justify-center rounded bg-[#005047] text-white font-bold text-sm">
               <User className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+              <h2 className="text-base font-bold text-[#1b2129]">
                 Sign In to FreeRooms
               </h2>
-              <p className="text-xs text-zinc-500">
-                Independent student app account
+              <p className="text-xs text-[#596560]">
+                Independent student app profile
               </p>
             </div>
           </div>
           <button
             onClick={() => setIsLoginModalOpen(false)}
-            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
+            className="rounded p-1 text-[#596560] hover:bg-[#f2f5f3]"
           >
             <X className="h-4 w-4" />
           </button>
@@ -52,7 +52,7 @@ export function AppLoginModal() {
           <button
             type="button"
             onClick={handleGoogleSim}
-            className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-zinc-200 bg-white p-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 shadow-2xs transition-all"
+            className="w-full flex items-center justify-center gap-2.5 rounded-lg border border-[#dbe1dd] bg-white p-2.5 text-xs font-bold text-[#1b2129] hover:bg-[#f2f5f3] shadow-2xs transition-all"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24">
               <path
@@ -76,14 +76,14 @@ export function AppLoginModal() {
           </button>
 
           <div className="flex items-center gap-2">
-            <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
-            <span className="text-[11px] text-zinc-400 font-medium">or enter your name</span>
-            <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+            <div className="h-px flex-1 bg-[#eaeeec]" />
+            <span className="text-[11px] text-[#78827e] font-semibold">or student name</span>
+            <div className="h-px flex-1 bg-[#eaeeec]" />
           </div>
 
           <form onSubmit={handleCustomLogin} className="space-y-3">
             <div>
-              <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-bold text-[#1b2129]">
                 Your Name *
               </label>
               <input
@@ -92,12 +92,12 @@ export function AppLoginModal() {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g. Dhyan"
-                className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                className="mt-1 w-full rounded border border-[#dbe1dd] bg-white px-3 py-2 text-xs text-[#1b2129] focus:border-[#00875f] focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-bold text-[#1b2129]">
                 Email (optional)
               </label>
               <input
@@ -105,15 +105,15 @@ export function AppLoginModal() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="e.g. dhyan@example.com"
-                className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                className="mt-1 w-full rounded border border-[#dbe1dd] bg-white px-3 py-2 text-xs text-[#1b2129] focus:border-[#00875f] focus:outline-none"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-700 py-2.5 text-xs font-bold text-white hover:bg-emerald-800 shadow-2xs transition-all"
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded bg-[#005047] py-2.5 text-xs font-bold text-white hover:bg-[#003d36] shadow-2xs transition-all"
             >
-              <span>Sign In Profile</span>
+              <span>Save Student Profile</span>
             </button>
           </form>
         </div>
