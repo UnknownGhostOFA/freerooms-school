@@ -36,6 +36,9 @@ function MainDashboard() {
             Connected as <strong className="text-[#005047]">{studentSession.name}</strong>
           </div>
         </div>
+        <div className="mx-auto max-w-7xl px-4 mt-2 text-[10px] text-[#8c9692]">
+          Independent student utility. Not affiliated with, endorsed by, or officially associated with Wrenn School or Arbor Education / The Key Group.
+        </div>
       </footer>
 
       {/* Modals */}

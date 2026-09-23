@@ -16,8 +16,8 @@ export interface FreeStudyRoom {
   periodId: string;       // 'p1', 'p2', 'p3', 'p4', 'p5'
   periodNumber: number;   // 1, 2, 3, 4, 5
   lessonSubject: string;  // e.g. "6th form study: Year 13: 13D/St2"
-  supervisor?: string;    // e.g. "Supply", "Miss Allen"
-  contributedBy: string;  // e.g. "Dhyan P.", "Marcus T.", "Manual"
+  supervisor?: string;    // e.g. "Supply", "Staff"
+  contributedBy: string;  // e.g. "Student", "Manual"
   isManual?: boolean;
   notes?: string;
 }

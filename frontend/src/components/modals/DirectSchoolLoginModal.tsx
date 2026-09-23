@@ -29,7 +29,7 @@ export function DirectSchoolLoginModal({ isOpen, onClose }: DirectSchoolLoginMod
     return (typeof window !== 'undefined' && localStorage.getItem('freerooms_direct_school_url')) || 'https://wrenn-school.uk.arbor.sc';
   });
   const [username, setUsername] = useState(() => {
-    return (typeof window !== 'undefined' && localStorage.getItem('freerooms_direct_username')) || 'wsc-20dhpa@wrennschool.org.uk';
+    return (typeof window !== 'undefined' && localStorage.getItem('freerooms_direct_username')) || '';
   });
   const [password, setPassword] = useState('');
   const [autoRenew, setAutoRenew] = useState(true);

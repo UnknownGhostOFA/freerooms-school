@@ -160,7 +160,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
 
       // Name extraction
       const studentName = email.split('@')[0].toUpperCase();
-      const displayName = studentName.includes('20DHPA') ? 'Dhyan P. (Year 13)' : studentName;
+      const displayName = studentName || 'Student';
 
       const newSession: ArborStudentSession = {
         name: displayName,

@@ -5,14 +5,14 @@ import { Booking, Room } from '@/types';
 
 export async function GET() {
   try {
-    const localFilePath = 'C:\\Users\\Dhyan\\arbor-timetable\\timetable.json';
+    const localFilePath = path.join(process.cwd(), 'arbor-live-weeks.json');
     if (!fs.existsSync(localFilePath)) {
       return NextResponse.json({ error: 'Local timetable file not found' }, { status: 404 });
     }
 
     const content = fs.readFileSync(localFilePath, 'utf-8');
     const data = JSON.parse(content);
-    const entries = data.entries || [];
+    const entries = [...(data.weekA || []), ...(data.weekB || [])];
 
     const discoveredRoomsMap = new Map<string, Room>();
     const discoveredBookings: Booking[] = [];
