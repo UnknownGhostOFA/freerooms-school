@@ -312,22 +312,22 @@ app.get('/api/matrix', async (req, res) => {
   try {
     const week = (req.query.week || 'A').toUpperCase();
 
-    // 1. Load manual rooms from MongoDB Atlas
+    // 1. Load all study rooms for this week from MongoDB Atlas
     let mongoRooms = [];
     if (isAtlasConnected) {
       const records = await FreeRoom.find({ weekType: week }).lean();
       mongoRooms = records.map(r => ({
-        id: r.id,
+        id: r.id || `atlas-${Date.now()}-${r.roomCode}`,
         roomCode: cleanRoomCode(r.roomCode),
         weekType: r.weekType,
         dayOfWeek: r.dayOfWeek,
         dayName: r.dayName,
         periodId: r.periodId,
         periodNumber: r.periodNumber,
-        lessonSubject: r.lessonSubject || 'Free Study Room (Reported by Student)',
+        lessonSubject: r.lessonSubject || 'Free Study Room',
         supervisor: r.supervisor,
-        contributedBy: r.contributedBy || 'Student Submission',
-        isManual: true,
+        contributedBy: r.contributedBy || 'Arbor Sync',
+        isManual: !!r.isManual,
         notes: r.notes,
         createdAt: r.createdAt
       }));
@@ -365,16 +365,87 @@ app.get('/api/matrix', async (req, res) => {
         }));
     }
 
-    // Combine MongoDB rooms with baseline schedule
-    const allRooms = [...mongoRooms, ...baselineRooms];
+    // Deduplicate by roomCode + dayOfWeek + periodId
+    const roomMap = new Map();
+
+    // Baseline rooms first
+    for (const r of baselineRooms) {
+      if (!r.roomCode) continue;
+      const key = `${r.roomCode}-${r.dayOfWeek}-${r.periodId}`;
+      roomMap.set(key, r);
+    }
+
+    // MongoDB Atlas rooms (from student logins & manual contributions) take top priority & augment
+    for (const r of mongoRooms) {
+      if (!r.roomCode) continue;
+      const key = `${r.roomCode}-${r.dayOfWeek}-${r.periodId}`;
+      roomMap.set(key, r);
+    }
+
+    const allRooms = Array.from(roomMap.values());
 
     res.json({
       success: true,
       week,
       source: 'mongodb_atlas',
       count: allRooms.length,
-      manualCount: mongoRooms.length,
+      mongoCount: mongoRooms.length,
       studyRooms: allRooms
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST Batch Sync (from student logins)
+app.post('/api/rooms/sync-batch', async (req, res) => {
+  try {
+    const { rooms, studentName } = req.body;
+    if (!rooms || !Array.isArray(rooms) || rooms.length === 0) {
+      return res.status(400).json({ error: 'Array of study rooms is required' });
+    }
+
+    const saved = [];
+    for (const r of rooms) {
+      const clean = cleanRoomCode(r.roomCode);
+      if (!clean) continue;
+
+      const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+      const dayNum = Number(r.dayOfWeek) || 1;
+      const dayName = r.dayName || dayNames[dayNum - 1] || 'Monday';
+      const periodId = r.periodId || 'p1';
+      const periodNumber = r.periodNumber ?? (parseInt(periodId.replace('p', ''), 10) || 1);
+      const week = (r.weekType || 'A').toUpperCase();
+
+      const uniqueId = r.id || `sync-${week}-${dayNum}-${periodId}-${clean}`;
+
+      const doc = {
+        id: uniqueId,
+        roomCode: clean,
+        weekType: week,
+        dayOfWeek: dayNum,
+        dayName,
+        periodId,
+        periodNumber,
+        lessonSubject: r.lessonSubject || '6th form study',
+        supervisor: r.supervisor || 'Study Supervisor',
+        contributedBy: r.contributedBy || (studentName ? `${studentName} (Arbor Sync)` : 'Student Submission'),
+        isManual: !!r.isManual,
+        notes: r.notes || undefined,
+        createdAt: new Date()
+      };
+
+      if (isAtlasConnected) {
+        await FreeRoom.findOneAndUpdate({ id: uniqueId }, doc, { upsert: true, new: true });
+      }
+      saved.push(doc);
+    }
+
+    res.json({
+      success: true,
+      message: `Synced ${saved.length} study rooms to MongoDB Atlas`,
+      count: saved.length,
+      rooms: saved
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -450,8 +521,10 @@ app.delete('/api/rooms/manual/:id', async (req, res) => {
 
 function cleanRoomCode(raw) {
   if (!raw) return '';
-  let clean = raw.replace(/^.*?:\s*/, '').trim();
-  clean = clean.replace(/^Room\s*/i, '').trim();
+  let clean = String(raw).trim();
+  clean = clean.replace(/^.*?:\s*/i, '');
+  clean = clean.replace(/^room[\s\-_]*/i, '');
+  clean = clean.replace(/[^a-zA-Z0-9]/g, '');
   return clean.toUpperCase();
 }
 

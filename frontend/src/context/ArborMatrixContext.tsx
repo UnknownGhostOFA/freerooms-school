@@ -13,7 +13,7 @@ import {
 import confetti from 'canvas-confetti';
 
 // Versioning stamp: forces fresh login on each new deployment
-const APP_DEPLOY_BUILD = 'freerooms_deploy_v8_prod';
+const APP_DEPLOY_BUILD = 'freerooms_deploy_v9_prod';
 
 export interface ArborStudentSession {
   name: string;
@@ -58,11 +58,11 @@ interface ArborMatrixContextType {
 const ArborMatrixContext = createContext<ArborMatrixContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  BUILD_VERSION: 'arbor_deploy_build_v8',
-  SESSION: 'arbor_student_session_v8',
-  MANUAL_ROOMS_A: 'arbor_manual_rooms_a_v8',
-  MANUAL_ROOMS_B: 'arbor_manual_rooms_b_v8',
-  SELECTED_WEEK: 'arbor_selected_week_v8',
+  BUILD_VERSION: 'arbor_deploy_build_v9',
+  SESSION: 'arbor_student_session_v9',
+  MANUAL_ROOMS_A: 'arbor_manual_rooms_a_v9',
+  MANUAL_ROOMS_B: 'arbor_manual_rooms_b_v9',
+  SELECTED_WEEK: 'arbor_selected_week_v9',
 };
 
 export function ArborMatrixProvider({ children }: { children: ReactNode }) {
@@ -93,31 +93,37 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
 
       if (resA && resA.ok) {
         const dataA = await resA.json();
-        if (dataA.studyRooms && Array.isArray(dataA.studyRooms)) {
-          const manualOnly = dataA.studyRooms.filter((r: FreeStudyRoom) => r.isManual);
-          if (manualOnly.length > 0) {
-            setManualRoomsA(prev => {
-              const map = new Map<string, FreeStudyRoom>();
-              prev.forEach(r => map.set(r.id || `${r.roomCode}-${r.periodId}-${r.dayOfWeek}`, r));
-              manualOnly.forEach((r: FreeStudyRoom) => map.set(r.id || `${r.roomCode}-${r.periodId}-${r.dayOfWeek}`, r));
-              return Array.from(map.values());
+        if (dataA.studyRooms && Array.isArray(dataA.studyRooms) && dataA.studyRooms.length > 0) {
+          setManualRoomsA(prev => {
+            const map = new Map<string, FreeStudyRoom>();
+            prev.forEach(r => {
+              const code = cleanRoomCode(r.roomCode);
+              if (code) map.set(`${code}-${r.dayOfWeek}-${r.periodId}`, { ...r, roomCode: code });
             });
-          }
+            dataA.studyRooms.forEach((r: FreeStudyRoom) => {
+              const code = cleanRoomCode(r.roomCode);
+              if (code) map.set(`${code}-${r.dayOfWeek}-${r.periodId}`, { ...r, roomCode: code });
+            });
+            return Array.from(map.values());
+          });
         }
       }
 
       if (resB && resB.ok) {
         const dataB = await resB.json();
-        if (dataB.studyRooms && Array.isArray(dataB.studyRooms)) {
-          const manualOnly = dataB.studyRooms.filter((r: FreeStudyRoom) => r.isManual);
-          if (manualOnly.length > 0) {
-            setManualRoomsB(prev => {
-              const map = new Map<string, FreeStudyRoom>();
-              prev.forEach(r => map.set(r.id || `${r.roomCode}-${r.periodId}-${r.dayOfWeek}`, r));
-              manualOnly.forEach((r: FreeStudyRoom) => map.set(r.id || `${r.roomCode}-${r.periodId}-${r.dayOfWeek}`, r));
-              return Array.from(map.values());
+        if (dataB.studyRooms && Array.isArray(dataB.studyRooms) && dataB.studyRooms.length > 0) {
+          setManualRoomsB(prev => {
+            const map = new Map<string, FreeStudyRoom>();
+            prev.forEach(r => {
+              const code = cleanRoomCode(r.roomCode);
+              if (code) map.set(`${code}-${r.dayOfWeek}-${r.periodId}`, { ...r, roomCode: code });
             });
-          }
+            dataB.studyRooms.forEach((r: FreeStudyRoom) => {
+              const code = cleanRoomCode(r.roomCode);
+              if (code) map.set(`${code}-${r.dayOfWeek}-${r.periodId}`, { ...r, roomCode: code });
+            });
+            return Array.from(map.values());
+          });
         }
       }
 
@@ -211,13 +217,26 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
     ? PARSED_WEEK_A.lessons
     : PARSED_WEEK_B.lessons;
 
-  // Combine raw study rooms + manual rooms for current week
+  // Combine all study rooms from MongoDB Atlas + baseline Arbor study rooms
   const rawStudyRooms = selectedWeek === 'A'
     ? [...manualRoomsA, ...PARSED_WEEK_A.studyRooms]
     : [...manualRoomsB, ...PARSED_WEEK_B.studyRooms];
 
+  // Deduplicate and clean room codes
+  const dedupedMap = new Map<string, FreeStudyRoom>();
+  rawStudyRooms.forEach(room => {
+    const clean = cleanRoomCode(room.roomCode);
+    if (clean) {
+      const key = `${clean}-${room.dayOfWeek}-${room.periodId}`;
+      dedupedMap.set(key, {
+        ...room,
+        roomCode: clean,
+      });
+    }
+  });
+
   // STRICT OVERLAP FILTER: Never display a room as free if a class is timetabled in that room in this period!
-  const studyRooms = rawStudyRooms.filter(
+  const studyRooms = Array.from(dedupedMap.values()).filter(
     room => !isRoomOccupiedByClass(room.roomCode, room.dayOfWeek, room.periodId, allLessons)
   );
 
@@ -267,7 +286,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
       } catch {}
 
       // Refresh matrix with any newly ingested student study rooms
-      fetchRemoteRooms();
+      await fetchRemoteRooms();
 
       return { success: true };
     } catch (e: any) {

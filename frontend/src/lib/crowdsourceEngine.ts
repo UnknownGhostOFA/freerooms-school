@@ -33,8 +33,10 @@ export function matchTimeToPeriod(timeStr: string): Period {
 
 export function cleanRoomCode(raw: string): string {
   if (!raw) return '';
-  let clean = raw.replace(/^.*?:\s*/, '').trim();
-  clean = clean.replace(/^Room\s*/i, '').trim();
+  let clean = String(raw).trim();
+  clean = clean.replace(/^.*?:\s*/i, '');
+  clean = clean.replace(/^room[\s\-_]*/i, '');
+  clean = clean.replace(/[^a-zA-Z0-9]/g, '');
   return clean.toUpperCase();
 }
 

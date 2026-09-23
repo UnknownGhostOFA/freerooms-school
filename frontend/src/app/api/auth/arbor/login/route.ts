@@ -47,37 +47,62 @@ export async function POST(req: NextRequest) {
 
     const studentName = username.split('@')[0].toUpperCase();
 
-    // Ingest any discovered study rooms into MongoDB Atlas via backend server
+    // Ingest all discovered study rooms into MongoDB Atlas via backend server
     if (liveData.bookings && liveData.bookings.length > 0) {
-      const studyBookings = liveData.bookings.filter(b => isStudyLesson(b.subject || ''));
+      const studyRoomsToSync: any[] = [];
 
-      for (const b of studyBookings) {
+      for (const b of liveData.bookings) {
         const clean = cleanRoomCode(b.roomId || '');
-        if (!clean) continue;
+        const isStudy = isStudyLesson(b.subject || '') || clean.startsWith('6');
+        if (!isStudy || !clean) continue;
 
         const period = matchTimeToPeriod(b.startTime);
         const dayNum = b.dayOfWeek || 1;
         const dayObj = DAYS_OF_WEEK.find(d => d.id === dayNum) || DAYS_OF_WEEK[0];
 
+        // Add for Week A
+        studyRoomsToSync.push({
+          id: `sync-A-${dayNum}-${period.id}-${clean}`,
+          roomCode: clean,
+          weekType: 'A',
+          dayOfWeek: dayNum,
+          dayName: dayObj.name,
+          periodId: period.id,
+          periodNumber: period.number ?? 1,
+          lessonSubject: b.subject || '6th form study',
+          supervisor: b.teacher || 'Study Supervisor',
+          contributedBy: `${studentName} (Arbor Sync)`,
+          isManual: false,
+        });
+
+        // Add for Week B
+        studyRoomsToSync.push({
+          id: `sync-B-${dayNum}-${period.id}-${clean}`,
+          roomCode: clean,
+          weekType: 'B',
+          dayOfWeek: dayNum,
+          dayName: dayObj.name,
+          periodId: period.id,
+          periodNumber: period.number ?? 1,
+          lessonSubject: b.subject || '6th form study',
+          supervisor: b.teacher || 'Study Supervisor',
+          contributedBy: `${studentName} (Arbor Sync)`,
+          isManual: false,
+        });
+      }
+
+      if (studyRoomsToSync.length > 0) {
         try {
-          await fetch(`${BACKEND_URL}/api/rooms/manual`, {
+          await fetch(`${BACKEND_URL}/api/rooms/sync-batch`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              id: `arbor-sync-${clean}-${dayNum}-${period.id}`,
-              roomCode: clean,
-              weekType: 'A',
-              dayOfWeek: dayNum,
-              dayName: dayObj.name,
-              periodId: period.id,
-              periodNumber: period.number || 1,
-              lessonSubject: b.subject || '6th form study',
-              supervisor: b.teacher || 'Study Supervisor',
-              contributedBy: `${studentName} (Arbor Sync)`,
+              studentName,
+              rooms: studyRoomsToSync
             }),
           });
         } catch (syncErr) {
-          console.warn('Backend sync for booking failed:', syncErr);
+          console.warn('Batch sync to backend failed:', syncErr);
         }
       }
     }
