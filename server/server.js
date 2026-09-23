@@ -1,11 +1,13 @@
 require('dotenv').config();
 const dns = require('dns');
-// Configure reliable public DNS servers to resolve MongoDB SRV records across all Wi-Fi networks
+
+// Configure reliable public DNS servers to resolve MongoDB SRV records across all networks
 try {
   dns.setServers(['8.8.8.8', '1.1.1.1']);
 } catch (e) {
   // fallback to system DNS if custom servers fail
 }
+
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -20,46 +22,19 @@ const MONGODB_URI = process.env.MONGODB_URI;
 app.use(cors());
 app.use(express.json());
 
-// Local Database File Fallback
-const DATA_DIR = path.join(__dirname, 'data');
-const LOCAL_DB_FILE = path.join(DATA_DIR, 'crowdsource-db.json');
-
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-function getLocalData() {
-  if (!fs.existsSync(LOCAL_DB_FILE)) {
-    return { studyRooms: [], manualOverrides: [] };
-  }
-  try {
-    return JSON.parse(fs.readFileSync(LOCAL_DB_FILE, 'utf-8'));
-  } catch {
-    return { studyRooms: [], manualOverrides: [] };
-  }
-}
-
-function saveLocalData(data) {
-  try {
-    fs.writeFileSync(LOCAL_DB_FILE, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.warn('Failed to save local data:', err.message);
-  }
-}
-
 // MongoDB Mongoose Schema
 const FreeRoomSchema = new mongoose.Schema({
-  id: { type: String, unique: true, sparse: true },
+  id: { type: String, unique: true, required: true },
   roomCode: { type: String, required: true },
   weekType: { type: String, enum: ['A', 'B'], required: true },
   dayOfWeek: { type: Number, required: true }, // 1=Mon .. 5=Fri
   dayName: { type: String, required: true },
   periodId: { type: String, required: true },
   periodNumber: { type: Number, required: true },
-  lessonSubject: { type: String, default: '6th form study' },
+  lessonSubject: { type: String, default: 'Free Study Room (Reported by Student)' },
   supervisor: { type: String },
-  contributedBy: { type: String, default: 'Arbor' },
-  isManual: { type: Boolean, default: false },
+  contributedBy: { type: String, default: 'Student Submission' },
+  isManual: { type: Boolean, default: true },
   notes: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
@@ -68,26 +43,36 @@ const FreeRoom = mongoose.models.FreeRoom || mongoose.model('FreeRoom', FreeRoom
 
 let isAtlasConnected = false;
 
-// Attempt Atlas Connection with timeout
+// Connect to MongoDB Atlas
 if (MONGODB_URI) {
   mongoose.connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000
+    serverSelectionTimeoutMS: 5000,
   })
   .then(() => {
     isAtlasConnected = true;
-    console.log('[PASS] MongoDB Atlas Connected.');
+    console.log('[PASS] MongoDB Atlas Connected Successfully.');
   })
   .catch((err) => {
-    console.log('[INFO] MongoDB Atlas connection status:', err.message);
-    console.log('[INFO] Using Local JSON Database Engine fallback.');
+    console.error('[ERROR] MongoDB Atlas Connection Error:', err.message);
   });
+
+  mongoose.connection.on('disconnected', () => {
+    isAtlasConnected = false;
+    console.warn('[WARN] MongoDB Atlas Disconnected.');
+  });
+
+  mongoose.connection.on('connected', () => {
+    isAtlasConnected = true;
+    console.log('[PASS] MongoDB Atlas Reconnected.');
+  });
+} else {
+  console.warn('[WARN] MONGODB_URI environment variable is not defined!');
 }
 
 // Root Webpage for Render Server
 app.get('/', (req, res) => {
-  const isAtlas = isAtlasConnected;
-  const dbStatus = isAtlas ? 'MongoDB Atlas (Live Cluster)' : 'Persistent Fallback Storage';
-  const dbColor = isAtlas ? '#10b981' : '#f59e0b';
+  const dbStatus = isAtlasConnected ? 'MongoDB Atlas (Connected)' : 'MongoDB Atlas (Connecting...)';
+  const dbColor = isAtlasConnected ? '#10b981' : '#f59e0b';
 
   res.send(`
 <!DOCTYPE html>
@@ -315,7 +300,8 @@ app.get('/', (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'online',
-    database: isAtlasConnected ? 'MongoDB Atlas' : 'Local Persistent Engine',
+    database: 'MongoDB Atlas',
+    connected: isAtlasConnected,
     keepAlive: 'active (10m)',
     timestamp: new Date().toISOString()
   });
@@ -326,34 +312,25 @@ app.get('/api/matrix', async (req, res) => {
   try {
     const week = (req.query.week || 'A').toUpperCase();
 
-    // 1. Load manual rooms from Atlas (or local file fallback)
-    let manualDbRooms = [];
+    // 1. Load manual rooms from MongoDB Atlas
+    let mongoRooms = [];
     if (isAtlasConnected) {
-      try {
-        const atlasRecords = await FreeRoom.find({ weekType: week }).lean();
-        manualDbRooms = atlasRecords.map(r => ({
-          id: r.id || (r._id ? r._id.toString() : `atlas-${Date.now()}`),
-          roomCode: cleanRoomCode(r.roomCode),
-          weekType: r.weekType,
-          dayOfWeek: r.dayOfWeek,
-          dayName: r.dayName,
-          periodId: r.periodId,
-          periodNumber: r.periodNumber,
-          lessonSubject: r.lessonSubject || 'Free Study Room (Reported by Student)',
-          supervisor: r.supervisor,
-          contributedBy: r.contributedBy || 'Student Submission',
-          isManual: true,
-          notes: r.notes,
-          createdAt: r.createdAt
-        }));
-      } catch (err) {
-        console.warn('Atlas fetch error, falling back to local file:', err.message);
-        const localData = getLocalData();
-        manualDbRooms = (localData.studyRooms || []).filter(r => r.weekType === week);
-      }
-    } else {
-      const localData = getLocalData();
-      manualDbRooms = (localData.studyRooms || []).filter(r => r.weekType === week);
+      const records = await FreeRoom.find({ weekType: week }).lean();
+      mongoRooms = records.map(r => ({
+        id: r.id,
+        roomCode: cleanRoomCode(r.roomCode),
+        weekType: r.weekType,
+        dayOfWeek: r.dayOfWeek,
+        dayName: r.dayName,
+        periodId: r.periodId,
+        periodNumber: r.periodNumber,
+        lessonSubject: r.lessonSubject || 'Free Study Room (Reported by Student)',
+        supervisor: r.supervisor,
+        contributedBy: r.contributedBy || 'Student Submission',
+        isManual: true,
+        notes: r.notes,
+        createdAt: r.createdAt
+      }));
     }
 
     // 2. Load baseline live scraped weeks
@@ -361,6 +338,7 @@ app.get('/api/matrix', async (req, res) => {
     if (!fs.existsSync(liveWeeksPath)) {
       liveWeeksPath = path.join(__dirname, '..', 'frontend', 'arbor-live-weeks.json');
     }
+
     let baselineRooms = [];
     if (fs.existsSync(liveWeeksPath)) {
       const raw = JSON.parse(fs.readFileSync(liveWeeksPath, 'utf-8'));
@@ -387,15 +365,15 @@ app.get('/api/matrix', async (req, res) => {
         }));
     }
 
-    // 3. Combine manual rooms (prioritized at top) + baseline study rooms
-    const allRooms = [...manualDbRooms, ...baselineRooms];
+    // Combine MongoDB rooms with baseline schedule
+    const allRooms = [...mongoRooms, ...baselineRooms];
 
     res.json({
       success: true,
       week,
-      source: isAtlasConnected ? 'atlas' : 'local_db',
+      source: 'mongodb_atlas',
       count: allRooms.length,
-      manualCount: manualDbRooms.length,
+      manualCount: mongoRooms.length,
       studyRooms: allRooms
     });
   } catch (error) {
@@ -429,31 +407,19 @@ app.post('/api/rooms/manual', async (req, res) => {
       contributedBy: contributedBy || 'Student Submission',
       isManual: true,
       notes: notes || undefined,
-      createdAt: new Date().toISOString()
+      createdAt: new Date()
     };
 
-    // Save to Atlas if connected
+    // Save exclusively to MongoDB Atlas
     if (isAtlasConnected) {
-      try {
-        await FreeRoom.findOneAndUpdate({ id: roomId }, newRoom, { upsert: true, new: true });
-      } catch (err) {
-        console.warn('Atlas write error:', err.message);
-      }
-    }
-
-    // Always persist to local JSON database for dual-layer durability
-    const data = getLocalData();
-    const existingIdx = (data.studyRooms || []).findIndex(r => r.id === roomId);
-    if (existingIdx >= 0) {
-      data.studyRooms[existingIdx] = newRoom;
+      await FreeRoom.findOneAndUpdate({ id: roomId }, newRoom, { upsert: true, new: true });
     } else {
-      data.studyRooms = [newRoom, ...(data.studyRooms || [])];
+      console.warn('[WARN] MongoDB Atlas not connected. Room could not be saved to DB.');
     }
-    saveLocalData(data);
 
     res.json({
       success: true,
-      message: `Room ${clean} added to Week ${weekType || 'A'} Period ${periodNumber}`,
+      message: `Room ${clean} saved to MongoDB Atlas for Week ${weekType || 'A'} Period ${periodNumber}`,
       room: newRoom
     });
   } catch (error) {
@@ -470,20 +436,12 @@ app.delete('/api/rooms/manual/:id', async (req, res) => {
     }
 
     if (isAtlasConnected) {
-      try {
-        await FreeRoom.deleteOne({ id: roomId });
-      } catch (err) {
-        console.warn('Atlas delete error:', err.message);
-      }
+      await FreeRoom.deleteOne({ id: roomId });
     }
-
-    const data = getLocalData();
-    data.studyRooms = (data.studyRooms || []).filter(r => r.id !== roomId);
-    saveLocalData(data);
 
     res.json({
       success: true,
-      message: `Room ${roomId} deleted successfully`
+      message: `Room ${roomId} deleted from MongoDB Atlas`
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

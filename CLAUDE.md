@@ -46,10 +46,12 @@ This workspace is split into two independent sub-projects:
 ### 2. `server/` (Node.js & Express API Backend)
 - **GitHub Repository**: [`UnknownGhostOFA/freeroom-server`](https://github.com/UnknownGhostOFA/freeroom-server)
 - **Port**: `http://localhost:5000`
+- **Production URL**: `https://freeroom-server.onrender.com`
 - **Framework**: Express.js, Mongoose, Node-fetch.
 - **Database Architecture**:
-  - **Layer 1**: Live MongoDB Atlas cluster (`database.cv4cnz0.mongodb.net`).
-  - **Layer 2**: Zero-config persistent JSON storage fallback (`server/data/crowdsource-db.json`) if port 27017 is restricted by local network.
+  - **Exclusively MongoDB Atlas**: Live MongoDB Atlas cluster (`database.cv4cnz0.mongodb.net`, database `freerooms_school`).
+  - **Self-Ping Heartbeat**: 10-minute automated ping engine preventing Render free-tier sleep.
+  - **Landing Page**: Root `/` renders Arbor-styled health monitor with link to `http://freeroom-frontend.vercel.app/`.
 - **Scraper Engine**: Connects to `https://wrenn-school.uk.arbor.sc`, extracts session cookies and student ID, and scrapes multiday calendar entries for Week A & Week B.
 
 ---

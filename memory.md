@@ -23,10 +23,12 @@ FreeRooms School is a crowdsourced timetable aggregator designed for **Wrenn Sch
 ### 2. Backend Server API
 - **GitHub Repository**: [`UnknownGhostOFA/freeroom-server`](https://github.com/UnknownGhostOFA/freeroom-server)
 - **Local Directory**: `server/` (Port 5000)
-- **Tech Stack**: Node.js, Express.js, MongoDB Atlas (Mongoose), fallback local storage.
+- **Production URL**: `https://freeroom-server.onrender.com`
+- **Tech Stack**: Node.js, Express.js, MongoDB Atlas (Mongoose)
 - **Database Architecture**:
-  - **Layer 1**: Live MongoDB Atlas cluster connection.
-  - **Layer 2**: Zero-config persistent JSON storage fallback (`server/data/crowdsource-db.json`) if port 27017 is blocked by local network.
+  - **Single Exclusively Unified Database**: Live MongoDB Atlas cluster connection (`database.cv4cnz0.mongodb.net`, database `freerooms_school`).
+  - **Self-Ping Heartbeat**: Automated 10-minute keep-alive ping engine to prevent Render free-tier sleep.
+  - **Web Dashboard**: Root `/` serves Arbor-themed server health page with 1-click button to frontend (`http://freeroom-frontend.vercel.app/`).
 - **Scraper Engine**: Direct internal Arbor API login, session cookie capture, student ID resolution, and multiday calendar scraper.
 
 ---
