@@ -2,12 +2,12 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Period, FreeStudyRoom, ClassLesson } from '@/types';
-import { 
-  WRENN_PERIODS, 
-  DAYS_OF_WEEK, 
+import {
+  WRENN_PERIODS,
+  DAYS_OF_WEEK,
   PARSED_WEEK_A,
   PARSED_WEEK_B,
-  cleanRoomCode 
+  cleanRoomCode
 } from '@/lib/crowdsourceEngine';
 import confetti from 'canvas-confetti';
 
@@ -31,24 +31,24 @@ interface ArborMatrixContextType {
   setSelectedDay: (d: number) => void;
   selectedWeek: 'A' | 'B';
   setSelectedWeek: (w: 'A' | 'B') => void;
-  
+
   // Study Rooms & Classes Data for currently selected week
   studyRooms: FreeStudyRoom[];
   allLessons: ClassLesson[];
-  
+
   // Direct Arbor Student Session
   studentSession: ArborStudentSession | null;
   arborLogin: (schoolUrl: string, email: string, pass: string) => Promise<{ success: boolean; message?: string }>;
   logoutStudent: () => void;
-  
+
   // Manual Free Room submission
   addManualFreeRoom: (roomCode: string, dayOfWeek: number, periodId: string, notes?: string) => void;
   deleteFreeRoom: (id: string) => void;
-  
+
   // Claim / "I am in this room"
   claimStudyRoom: (roomCode: string, periodId: string, dayOfWeek: number) => void;
   clearClaimedRoom: () => void;
-  
+
   // Modal states
   activePeriodDetails: { period: Period; day: number } | null;
   setActivePeriodDetails: (details: { period: Period; day: number } | null) => void;
@@ -66,6 +66,8 @@ const STORAGE_KEYS = {
 };
 
 export function ArborMatrixProvider({ children }: { children: ReactNode }) {
+  const [isHydrated, setIsHydrated] = useState(false);
+
   const [selectedDay, setSelectedDay] = useState<number>(() => {
     const today = new Date().getDay();
     if (today >= 1 && today <= 5) return today;
@@ -73,16 +75,14 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
   });
 
   const [selectedWeek, setSelectedWeek] = useState<'A' | 'B'>('A');
-
   const [manualRoomsA, setManualRoomsA] = useState<FreeStudyRoom[]>([]);
   const [manualRoomsB, setManualRoomsB] = useState<FreeStudyRoom[]>([]);
-  
   const [studentSession, setStudentSession] = useState<ArborStudentSession | null>(null);
 
   const [activePeriodDetails, setActivePeriodDetails] = useState<{ period: Period; day: number } | null>(null);
   const [isAddFreeRoomModalOpen, setIsAddFreeRoomModalOpen] = useState(false);
 
-  // Load storage
+  // 1. Initial load from localStorage + background fetch from database
   useEffect(() => {
     try {
       const savedSession = localStorage.getItem(STORAGE_KEYS.SESSION);
@@ -92,32 +92,91 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
       if (savedWeek === 'A' || savedWeek === 'B') setSelectedWeek(savedWeek);
 
       const savedA = localStorage.getItem(STORAGE_KEYS.MANUAL_ROOMS_A);
-      if (savedA) setManualRoomsA(JSON.parse(savedA));
+      if (savedA) {
+        const parsedA = JSON.parse(savedA);
+        if (Array.isArray(parsedA) && parsedA.length > 0) setManualRoomsA(parsedA);
+      }
 
       const savedB = localStorage.getItem(STORAGE_KEYS.MANUAL_ROOMS_B);
-      if (savedB) setManualRoomsB(JSON.parse(savedB));
-    } catch {}
+      if (savedB) {
+        const parsedB = JSON.parse(savedB);
+        if (Array.isArray(parsedB) && parsedB.length > 0) setManualRoomsB(parsedB);
+      }
+    } catch (e) {
+      console.warn('Failed reading from localStorage:', e);
+    } finally {
+      setIsHydrated(true);
+    }
+
+    // Background sync from MongoDB / Server backend
+    const fetchRemoteRooms = async () => {
+      try {
+        const [resA, resB] = await Promise.all([
+          fetch('/api/rooms/manual?week=A').catch(() => null),
+          fetch('/api/rooms/manual?week=B').catch(() => null),
+        ]);
+
+        if (resA && resA.ok) {
+          const dataA = await resA.json();
+          if (dataA.studyRooms && Array.isArray(dataA.studyRooms)) {
+            const manualOnly = dataA.studyRooms.filter((r: FreeStudyRoom) => r.isManual);
+            if (manualOnly.length > 0) {
+              setManualRoomsA(prev => {
+                const map = new Map<string, FreeStudyRoom>();
+                prev.forEach(r => map.set(r.id || `${r.roomCode}-${r.periodId}-${r.dayOfWeek}`, r));
+                manualOnly.forEach((r: FreeStudyRoom) => map.set(r.id || `${r.roomCode}-${r.periodId}-${r.dayOfWeek}`, r));
+                return Array.from(map.values());
+              });
+            }
+          }
+        }
+
+        if (resB && resB.ok) {
+          const dataB = await resB.json();
+          if (dataB.studyRooms && Array.isArray(dataB.studyRooms)) {
+            const manualOnly = dataB.studyRooms.filter((r: FreeStudyRoom) => r.isManual);
+            if (manualOnly.length > 0) {
+              setManualRoomsB(prev => {
+                const map = new Map<string, FreeStudyRoom>();
+                prev.forEach(r => map.set(r.id || `${r.roomCode}-${r.periodId}-${r.dayOfWeek}`, r));
+                manualOnly.forEach((r: FreeStudyRoom) => map.set(r.id || `${r.roomCode}-${r.periodId}-${r.dayOfWeek}`, r));
+                return Array.from(map.values());
+              });
+            }
+          }
+        }
+      } catch (err) {
+        // Fallback gracefully to local storage
+      }
+    };
+
+    fetchRemoteRooms();
   }, []);
 
+  // 2. Persist to localStorage only AFTER hydration has occurred
   useEffect(() => {
+    if (!isHydrated) return;
     try {
       localStorage.setItem(STORAGE_KEYS.SELECTED_WEEK, selectedWeek);
     } catch {}
-  }, [selectedWeek]);
+  }, [selectedWeek, isHydrated]);
 
   useEffect(() => {
+    if (!isHydrated) return;
     try {
       localStorage.setItem(STORAGE_KEYS.MANUAL_ROOMS_A, JSON.stringify(manualRoomsA));
     } catch {}
-  }, [manualRoomsA]);
+  }, [manualRoomsA, isHydrated]);
 
   useEffect(() => {
+    if (!isHydrated) return;
     try {
       localStorage.setItem(STORAGE_KEYS.MANUAL_ROOMS_B, JSON.stringify(manualRoomsB));
     } catch {}
-  }, [manualRoomsB]);
+  }, [manualRoomsB, isHydrated]);
 
   useEffect(() => {
+    if (!isHydrated) return;
     try {
       if (studentSession) {
         localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify(studentSession));
@@ -125,10 +184,10 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem(STORAGE_KEYS.SESSION);
       }
     } catch {}
-  }, [studentSession]);
+  }, [studentSession, isHydrated]);
 
-  // Combine live Arbor study rooms + manual rooms for current week
-  const studyRooms = selectedWeek === 'A' 
+  // Combine live Arbor study rooms + manual rooms for current week (manual rooms at top)
+  const studyRooms = selectedWeek === 'A'
     ? [...manualRoomsA, ...PARSED_WEEK_A.studyRooms]
     : [...manualRoomsB, ...PARSED_WEEK_B.studyRooms];
 
@@ -227,9 +286,10 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
     const cleanCode = cleanRoomCode(roomCode);
     const period = WRENN_PERIODS.find(p => p.id === periodId) || WRENN_PERIODS[1];
     const dayObj = DAYS_OF_WEEK.find(d => d.id === dayOfWeek) || DAYS_OF_WEEK[0];
+    const roomId = `manual-${selectedWeek}-${Date.now()}-${cleanCode}`;
 
     const newFreeRoom: FreeStudyRoom = {
-      id: `manual-${selectedWeek}-${Date.now()}-${cleanCode}`,
+      id: roomId,
       roomCode: cleanCode,
       dayOfWeek,
       dayName: dayObj.name,
@@ -242,11 +302,28 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
     };
 
     if (selectedWeek === 'A') {
-      setManualRoomsA(prev => [newFreeRoom, ...prev]);
+      setManualRoomsA(prev => [newFreeRoom, ...prev.filter(r => r.id !== roomId)]);
     } else {
-      setManualRoomsB(prev => [newFreeRoom, ...prev]);
+      setManualRoomsB(prev => [newFreeRoom, ...prev.filter(r => r.id !== roomId)]);
     }
     setIsAddFreeRoomModalOpen(false);
+
+    // Save asynchronously to backend / MongoDB Atlas
+    fetch('/api/rooms/manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: roomId,
+        roomCode: cleanCode,
+        weekType: selectedWeek,
+        dayOfWeek,
+        periodId: period.id,
+        notes,
+        contributedBy: studentSession ? studentSession.name : 'Student Submission',
+      }),
+    }).catch(err => {
+      console.warn('Backend sync failed, saved in client storage:', err);
+    });
   };
 
   const deleteFreeRoom = (id: string) => {
@@ -255,6 +332,10 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
     } else {
       setManualRoomsB(prev => prev.filter(r => r.id !== id));
     }
+
+    fetch(`/api/rooms/manual?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }).catch(() => {});
   };
 
   return (
