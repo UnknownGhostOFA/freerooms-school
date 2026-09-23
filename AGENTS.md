@@ -1,9 +1,8 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# AGENTS.md — FreeRooms School
 
-# This is NOT the Next.js you know
+See **`CLAUDE.md`** and **`memory.md`** in this directory for full project rules, architecture, Arbor Week A/B timetable logic, and skill verification guidelines.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+## Quick Summary
+- **Frontend (`frontend/`)**: Next.js 16 + Pure Arbor MIS UI (Period 1–5 Matrix + Week A/B).
+- **Server (`server/`)**: Express.js + MongoDB Atlas + Arbor scraper engine.
+- **Skill Checks**: Always verify that `ayghri/i-have-adhd`, `vercel-labs/agent-skills`, `firebase/agent-skills`, and Vercel MCP are installed; if missing, ask the user to install them.
