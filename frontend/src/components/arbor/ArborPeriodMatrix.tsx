@@ -64,8 +64,8 @@ export function ArborPeriodMatrix() {
         </div>
       </div>
 
-      {/* The 6 Period Cards (Form + Periods 1 to 5) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+      {/* The 5 Period Cards (Periods 1 to 5) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
         {periods.map(period => {
           const periodStudyRooms = studyRooms.filter(
             r => r.dayOfWeek === selectedDay && r.periodId === period.id

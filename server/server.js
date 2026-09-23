@@ -348,21 +348,25 @@ app.get('/api/matrix', async (req, res) => {
       baselineRooms = (weekEvents || [])
         .filter(e => {
           if (e.start === '08:40') dayIdx++;
-          return e.isStudy;
+          const p = matchTimeToPeriod(e.start);
+          return e.isStudy && p !== null;
         })
-        .map((e, idx) => ({
-          id: `arbor-${week}-${idx}`,
-          roomCode: cleanRoomCode(e.room),
-          weekType: week,
-          dayOfWeek: Math.max(1, Math.min(5, dayIdx + 1)),
-          dayName: e.dayName,
-          periodId: matchTimeToPeriod(e.start).id,
-          periodNumber: matchTimeToPeriod(e.start).number,
-          lessonSubject: e.subject,
-          supervisor: e.teacher || 'Study Supervisor',
-          contributedBy: `Arbor (Week ${week})`,
-          isManual: false
-        }));
+        .map((e, idx) => {
+          const p = matchTimeToPeriod(e.start) || { id: 'p1', number: 1 };
+          return {
+            id: `arbor-${week}-${idx}`,
+            roomCode: cleanRoomCode(e.room),
+            weekType: week,
+            dayOfWeek: Math.max(1, Math.min(5, dayIdx + 1)),
+            dayName: e.dayName,
+            periodId: p.id,
+            periodNumber: p.number,
+            lessonSubject: e.subject,
+            supervisor: e.teacher || 'Study Supervisor',
+            contributedBy: `Arbor (Week ${week})`,
+            isManual: false
+          };
+        });
     }
 
     // Deduplicate by roomCode + dayOfWeek + periodId
@@ -533,7 +537,7 @@ function matchTimeToPeriod(timeStr) {
   const parts = timeStr.split(':');
   const mins = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
 
-  if (mins < 9 * 60 + 10) return { id: 'reg', number: 0 };
+  if (mins < 9 * 60 + 10) return null; // Form Time (08:40 - 09:10) -> Excluded
   if (mins < 10 * 60 + 10) return { id: 'p1', number: 1 };
   if (mins < 11 * 60 + 20) return { id: 'p2', number: 2 };
   if (mins < 12 * 60 + 30) return { id: 'p3', number: 3 };

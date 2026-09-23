@@ -16,7 +16,7 @@ export function AddFreeRoomModal() {
 
   const [roomCode, setRoomCode] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState(selectedDay);
-  const [periodId, setPeriodId] = useState(periods[1]?.id || 'p1');
+  const [periodId, setPeriodId] = useState(periods[0]?.id || 'p1');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
 

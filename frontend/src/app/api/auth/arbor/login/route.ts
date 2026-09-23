@@ -57,6 +57,8 @@ export async function POST(req: NextRequest) {
         if (!isStudy || !clean) continue;
 
         const period = matchTimeToPeriod(b.startTime);
+        if (!period) continue; // Skip Form time
+
         const dayNum = b.dayOfWeek || 1;
         const dayObj = DAYS_OF_WEEK.find(d => d.id === dayNum) || DAYS_OF_WEEK[0];
 

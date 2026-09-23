@@ -2,7 +2,6 @@ import { Period, FreeStudyRoom, ClassLesson } from '@/types';
 import liveWeeksData from '../../arbor-live-weeks.json';
 
 export const WRENN_PERIODS: Period[] = [
-  { id: 'reg', number: 0, name: 'Form Time', shortName: 'Form', startTime: '08:40', endTime: '09:10' },
   { id: 'p1', number: 1, name: 'Period 1', shortName: 'P1', startTime: '09:10', endTime: '10:10' },
   { id: 'p2', number: 2, name: 'Period 2', shortName: 'P2', startTime: '10:10', endTime: '11:10' },
   { id: 'p3', number: 3, name: 'Period 3', shortName: 'P3', startTime: '11:30', endTime: '12:30' },
@@ -18,17 +17,17 @@ export const DAYS_OF_WEEK = [
   { id: 5, name: 'Friday', short: 'Fri' },
 ];
 
-export function matchTimeToPeriod(timeStr: string): Period {
-  if (!timeStr) return WRENN_PERIODS[1];
+export function matchTimeToPeriod(timeStr: string): Period | null {
+  if (!timeStr) return WRENN_PERIODS[0];
   const parts = timeStr.split(':');
   const mins = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
 
-  if (mins < 9 * 60 + 10) return WRENN_PERIODS[0]; // Form (08:40 - 09:10)
-  if (mins < 10 * 60 + 10) return WRENN_PERIODS[1]; // P1 (09:10 - 10:10)
-  if (mins < 11 * 60 + 20) return WRENN_PERIODS[2]; // P2 (10:10 - 11:10)
-  if (mins < 12 * 60 + 30) return WRENN_PERIODS[3]; // P3 (11:30 - 12:30)
-  if (mins < 13 * 60 + 50) return WRENN_PERIODS[4]; // P4 (12:30 - 13:30)
-  return WRENN_PERIODS[5]; // P5 (14:10 - 15:10)
+  if (mins < 9 * 60 + 10) return null; // Form Time (08:40 - 09:10) -> Excluded
+  if (mins < 10 * 60 + 10) return WRENN_PERIODS[0]; // P1 (09:10 - 10:10)
+  if (mins < 11 * 60 + 20) return WRENN_PERIODS[1]; // P2 (10:10 - 11:10)
+  if (mins < 12 * 60 + 30) return WRENN_PERIODS[2]; // P3 (11:30 - 12:30)
+  if (mins < 13 * 60 + 50) return WRENN_PERIODS[3]; // P4 (12:30 - 13:30)
+  return WRENN_PERIODS[4]; // P5 (14:10 - 15:10)
 }
 
 export function cleanRoomCode(raw: string): string {
@@ -92,6 +91,8 @@ function processRawWeek(rawEvents: any[], weekType: 'A' | 'B'): { studyRooms: Fr
     const dayName = dayNames[dayIdx];
 
     const period = matchTimeToPeriod(ev.start);
+    if (!period) return; // Exclude Form time
+
     const roomCode = cleanRoomCode(ev.room);
     const isStudy = isStudyLesson(ev.subject);
 
@@ -116,7 +117,7 @@ function processRawWeek(rawEvents: any[], weekType: 'A' | 'B'): { studyRooms: Fr
           dayOfWeek,
           dayName,
           periodId: period.id,
-          periodNumber: period.number ?? 0,
+          periodNumber: period.number ?? 1,
           lessonSubject: ev.subject,
           supervisor: ev.teacher || 'Study Supervisor',
           contributedBy: `Arbor (Week ${weekType})`,
