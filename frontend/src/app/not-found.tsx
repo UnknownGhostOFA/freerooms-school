@@ -1,399 +1,457 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import {
-  ArrowLeft,
-  Sparkles,
-  Compass,
-  RotateCcw,
-  Volume2,
-  VolumeX,
-  School,
-  Building2,
-  BookOpen
-} from 'lucide-react';
 import confetti from 'canvas-confetti';
 
+const SIZE = 13;
+
+interface LevelData {
+  par: number;
+  label: string;
+  grid: number[][];
+}
+
+const LEVELS: LevelData[] = [
+  {
+    par: 4,
+    label: 'Tutorial',
+    grid: [
+      [1,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,1,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,3,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,2],
+    ],
+  },
+  {
+    par: 6,
+    label: 'Level 1',
+    grid: [
+      [1,0,0,0,0,0,0,0,0,1,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,1,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,1,0,0],
+      [1,1,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,3,0,0,0],
+      [0,0,0,0,0,0,0,1,0,0,2,0,0],
+      [0,0,0,0,0,0,0,0,0,0,1,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+    ],
+  },
+  {
+    par: 8,
+    label: 'Level 2',
+    grid: [
+      [1,0,0,1,0,0,0,0,0,1,0,0,0],
+      [0,1,0,0,0,0,0,0,0,0,0,1,0],
+      [0,0,3,0,0,0,0,0,0,0,0,0,0],
+      [0,0,1,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,1,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,1,0,0],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,1,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,2,0,0,0],
+      [0,0,0,0,0,0,0,1,0,1,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,1,0,1],
+      [0,0,0,1,0,0,0,0,0,0,0,0,0],
+    ],
+  },
+  {
+    par: 13,
+    label: 'Level 3',
+    grid: [
+      [1,0,0,1,0,0,0,0,1,1,0,0,0],
+      [0,1,0,0,0,0,1,0,0,0,0,1,0],
+      [0,0,2,0,0,0,0,0,0,0,0,0,0],
+      [0,0,1,0,0,0,0,1,0,0,0,0,0],
+      [0,0,0,0,1,0,0,0,0,0,0,0,0],
+      [0,1,0,0,0,0,0,0,0,0,1,0,0],
+      [1,0,0,0,0,0,3,0,0,1,0,0,0],
+      [0,0,0,1,0,0,1,0,0,0,0,0,1],
+      [0,0,0,0,1,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,1,0,1,0,0,1],
+      [0,0,0,0,0,0,0,0,0,0,1,0,1],
+      [1,0,0,1,0,1,0,1,0,0,0,0,0],
+    ],
+  },
+  {
+    par: 12,
+    label: 'Level 4',
+    grid: [
+      [1,0,0,1,0,0,0,0,1,1,0,0,0],
+      [0,1,0,0,0,0,0,0,0,0,0,1,0],
+      [0,0,0,0,0,1,1,0,1,0,0,0,0],
+      [0,0,1,0,1,0,0,1,0,0,0,0,0],
+      [0,0,0,0,1,0,0,0,0,0,0,0,0],
+      [1,1,0,0,1,0,0,0,0,0,1,0,0],
+      [0,0,0,1,0,0,2,0,0,1,0,0,0],
+      [1,0,0,1,0,0,1,0,0,0,1,0,1],
+      [0,0,0,0,0,0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,1,0,0,0,0,0,0,0],
+      [1,0,0,0,0,0,0,1,0,1,0,0,1],
+      [0,0,1,0,0,0,0,0,0,0,1,0,1],
+      [1,0,0,1,0,1,3,1,0,0,0,0,1],
+    ],
+  },
+  {
+    par: 2,
+    label: '404 Master',
+    grid: [
+      [0,1,0,0,1,1,1,0,0,0,0,0,0],
+      [0,1,1,0,1,1,1,1,0,0,0,0,0],
+      [0,1,1,1,0,1,3,0,0,0,0,0,0],
+      [0,0,0,0,0,1,1,1,1,1,0,1,0],
+      [0,1,0,0,2,1,1,0,0,0,0,0,0],
+      [0,1,1,0,1,1,1,1,0,0,0,0,0],
+      [0,1,1,1,0,1,0,1,0,0,0,0,0],
+      [0,1,0,0,1,1,1,0,0,0,0,0,0],
+      [0,1,0,0,0,1,0,0,0,0,0,0,0],
+      [0,0,0,0,0,1,1,1,1,1,0,1,0],
+      [0,0,0,0,0,0,0,1,0,1,1,0,0],
+      [0,0,0,0,0,0,0,0,0,1,1,0,0],
+      [0,0,0,0,0,0,0,1,0,1,1,0,0],
+    ],
+  },
+];
+
 export default function NotFound() {
-  const [mouseOffset, setMouseOffset] = useState({ x: 0, y: 0 });
-  const [isSquished, setIsSquished] = useState(false);
-  const [quackCount, setQuackCount] = useState(0);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [currentQuackText, setCurrentQuackText] = useState("Quack! This room doesn't exist on the timetable.");
-  const [floatingHearts, setFloatingHearts] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [levelIndex, setLevelIndex] = useState(0);
+  const [grid, setGrid] = useState<number[][]>(() =>
+    LEVELS[0].grid.map(row => [...row])
+  );
+  const [pionPos, setPionPos] = useState<{ r: number; c: number }>({ r: 0, c: 0 });
+  const [holePos, setHolePos] = useState<{ r: number; c: number }>({ r: 0, c: 0 });
+  const [moves, setMoves] = useState(0);
+  const [isRotating, setIsRotating] = useState(false);
+  const [rotationAngle, setRotationAngle] = useState(0);
+  const [isWon, setIsWon] = useState(false);
+  const [isFalling, setIsFalling] = useState(false);
 
-  const stageRef = useRef<HTMLDivElement>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
 
-  // Smooth mouse tracking for 3D head tilt and eye gaze
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!stageRef.current) return;
-      const rect = stageRef.current.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const dx = (e.clientX - centerX) / (window.innerWidth / 2);
-      const dy = (e.clientY - centerY) / (window.innerHeight / 2);
+  // Initialize level
+  const loadLevel = useCallback((idx: number) => {
+    const lvl = LEVELS[idx] || LEVELS[0];
+    const initialGrid = lvl.grid.map(row => [...row]);
 
-      setMouseOffset({
-        x: Math.max(-1, Math.min(1, dx)),
-        y: Math.max(-1, Math.min(1, dy)),
-      });
-    };
+    let pion = { r: 0, c: 0 };
+    let hole = { r: 0, c: 0 };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
-
-  // Web Audio Synth for playful quack / pop sound effect
-  const playQuackSound = () => {
-    if (!soundEnabled || typeof window === 'undefined') return;
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-
-      // Fun bouncy cartoon synth pitch
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'triangle';
-      const baseFreq = 420 + Math.random() * 80;
-      osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.6, ctx.currentTime + 0.08);
-      osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.7, ctx.currentTime + 0.22);
-
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start();
-      osc.stop(ctx.currentTime + 0.26);
-    } catch {}
-  };
-
-  // Interactive Mascot Squeeze
-  const handleMascotClick = (e: React.MouseEvent) => {
-    setIsSquished(true);
-    setQuackCount(prev => prev + 1);
-    playQuackSound();
-
-    const quotes = [
-      "Quack! Looks like you took a wrong turn after Period 3.",
-      "Sorry, we couldn't study that for you.",
-      "Room 404 is vacant — only rubber ducks studying here!",
-      "Head back to the matrix for free study rooms like 6B, 6D, 6F!",
-      "Squeak! +10 luck for your next revision session.",
-      "404: Timetable out of bounds!"
-    ];
-    setCurrentQuackText(quotes[Math.floor(Math.random() * quotes.length)]);
-
-    // Pop floating heart / star particle
-    const rect = stageRef.current?.getBoundingClientRect();
-    if (rect) {
-      const newParticle = {
-        id: Date.now() + Math.random(),
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      };
-      setFloatingHearts(prev => [...prev.slice(-6), newParticle]);
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (initialGrid[r][c] === 3) pion = { r, c };
+        if (initialGrid[r][c] === 2) hole = { r, c };
+      }
     }
 
-    try {
-      confetti({
-        particleCount: 30,
-        spread: 50,
-        origin: { y: 0.55 },
-        colors: ['#facc15', '#fbbf24', '#00875f', '#e3f5ec', '#38bdf8']
-      });
-    } catch {}
+    setLevelIndex(idx);
+    setGrid(initialGrid);
+    setPionPos(pion);
+    setHolePos(hole);
+    setMoves(0);
+    setIsWon(false);
+    setIsRotating(false);
+    setRotationAngle(0);
+    setIsFalling(false);
+  }, []);
 
-    setTimeout(() => {
-      setIsSquished(false);
-    }, 280);
+  useEffect(() => {
+    loadLevel(0);
+  }, [loadLevel]);
+
+  // Apply gravity: drop player straight down
+  const applyGravity = useCallback(
+    (currentGrid: number[][], currentPion: { r: number; c: number }, currentHole: { r: number; c: number }) => {
+      const { r: fromR, c } = currentPion;
+      let destR = fromR;
+
+      for (let row = fromR + 1; row < SIZE; row++) {
+        const val = currentGrid[row][c];
+        if (val === 1) break; // Hits wall
+        destR = row;
+        if (row === currentHole.r && c === currentHole.c) break; // Hits goal
+      }
+
+      if (destR === fromR) {
+        // Did not move; check if on hole
+        if (fromR === currentHole.r && c === currentHole.c) {
+          setIsWon(true);
+          try {
+            confetti({
+              particleCount: 50,
+              spread: 60,
+              origin: { y: 0.6 },
+              colors: ['#000000', '#555555', '#aaaaaa']
+            });
+          } catch {}
+        }
+        setIsRotating(false);
+        setIsFalling(false);
+        return;
+      }
+
+      setIsFalling(true);
+      const newGrid = currentGrid.map(row => [...row]);
+      newGrid[fromR][c] = 0;
+      newGrid[destR][c] = 3;
+
+      // Animate fall duration
+      setTimeout(() => {
+        setGrid(newGrid);
+        setPionPos({ r: destR, c });
+        setIsFalling(false);
+        setIsRotating(false);
+
+        if (destR === currentHole.r && c === currentHole.c) {
+          setIsWon(true);
+          try {
+            confetti({
+              particleCount: 60,
+              spread: 70,
+              origin: { y: 0.6 },
+              colors: ['#000000', '#333333', '#888888']
+            });
+          } catch {}
+        }
+      }, 160);
+    },
+    []
+  );
+
+  // Rotate board
+  const handleRotate = useCallback(
+    (dir: 'left' | 'right') => {
+      if (isRotating || isWon) return;
+
+      setIsRotating(true);
+      setMoves(m => m + 1);
+
+      const angleDelta = dir === 'right' ? 90 : -90;
+      setRotationAngle(prev => prev + angleDelta);
+
+      // Perform matrix rotation after visual turn
+      setTimeout(() => {
+        const nextGrid = Array.from({ length: SIZE }, () => new Array(SIZE).fill(0));
+
+        for (let r = 0; r < SIZE; r++) {
+          for (let c = 0; c < SIZE; c++) {
+            if (dir === 'right') {
+              nextGrid[c][SIZE - 1 - r] = grid[r][c];
+            } else {
+              nextGrid[SIZE - 1 - c][r] = grid[r][c];
+            }
+          }
+        }
+
+        let nextPion: { r: number; c: number };
+        let nextHole: { r: number; c: number };
+
+        if (dir === 'right') {
+          nextPion = { r: pionPos.c, c: SIZE - 1 - pionPos.r };
+          nextHole = { r: holePos.c, c: SIZE - 1 - holePos.r };
+        } else {
+          nextPion = { r: SIZE - 1 - pionPos.c, c: pionPos.r };
+          nextHole = { r: SIZE - 1 - holePos.c, c: holePos.r };
+        }
+
+        setGrid(nextGrid);
+        setPionPos(nextPion);
+        setHolePos(nextHole);
+
+        // Reset visual rotation transform instantly without transition
+        setRotationAngle(0);
+
+        // Immediately drop pawn downward with gravity
+        applyGravity(nextGrid, nextPion, nextHole);
+      }, 380);
+    },
+    [isRotating, isWon, grid, pionPos, holePos, applyGravity]
+  );
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        handleRotate('left');
+      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        handleRotate('right');
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        loadLevel(levelIndex);
+      } else if ((e.key === 'Enter' || e.key === ' ') && isWon) {
+        e.preventDefault();
+        const next = (levelIndex + 1) % LEVELS.length;
+        loadLevel(next);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleRotate, loadLevel, levelIndex, isWon]);
+
+  // Touch Swipe navigation
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
   };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const diffX = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(diffX) > 40) {
+      if (diffX > 0) handleRotate('right');
+      else handleRotate('left');
+    }
+    touchStartX.current = null;
+  };
+
+  const currentLevel = LEVELS[levelIndex] || LEVELS[0];
 
   return (
     <div
-      ref={stageRef}
-      className="min-h-screen bg-[#fcf9f2] text-[#1c1917] flex flex-col justify-between font-sans selection:bg-[#fde047] selection:text-black overflow-hidden relative"
+      className="min-h-screen w-full bg-[#ffffff] text-[#000000] flex flex-col justify-between items-center box-border p-4 sm:p-6 select-none font-sans"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
-      {/* Background Soft Studio Ambient Rings */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#fef08a]/40 blur-3xl" />
-        <div className="absolute top-1/3 -right-32 w-96 h-96 rounded-full bg-[#e3f5ec]/70 blur-3xl" />
-        <div className="absolute -bottom-24 left-1/3 w-80 h-80 rounded-full bg-[#fed7aa]/30 blur-3xl" />
+      {/* Top Spacer */}
+      <div className="w-full" />
+
+      {/* Center Game Core */}
+      <div className="flex flex-col items-center w-full max-w-[520px]">
+        {/* Header: Score / 404 / Level */}
+        <div className="flex items-center justify-between w-full mb-3.5 px-1 font-mono">
+          <span className="text-xs sm:text-sm font-semibold tracking-widest text-[#000000]">
+            Moves: {moves}
+          </span>
+          <span className="text-xs sm:text-sm font-extrabold tracking-[0.2em] uppercase text-[#000000]">
+            404
+          </span>
+          <span className="text-xs sm:text-sm font-medium tracking-widest text-[#000000]/50">
+            {currentLevel.label}
+          </span>
+        </div>
+
+        {/* 13x13 Game Board Container */}
+        <div className="relative w-[min(88vw,70vh,460px)] h-[min(88vw,70vh,460px)]">
+          {/* Rotating Board */}
+          <div
+            ref={boardRef}
+            className="w-full h-full border-2 border-[#000000] grid bg-white relative box-border"
+            style={{
+              gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
+              gridTemplateRows: `repeat(${SIZE}, 1fr)`,
+              transform: `rotate(${rotationAngle}deg)`,
+              transition: isRotating ? 'transform 0.38s cubic-bezier(0.65, 0, 0.35, 1)' : 'none',
+              transformOrigin: 'center center',
+            }}
+          >
+            {grid.map((row, r) =>
+              row.map((val, c) => {
+                const isWall = val === 1;
+                const isGoal = r === holePos.r && c === holePos.c;
+                const isPion = val === 3;
+
+                return (
+                  <div
+                    key={`${r}-${c}`}
+                    className={`relative box-border ${isWall ? 'bg-[#000000]' : 'bg-transparent'}`}
+                  >
+                    {/* Goal Exit Hole */}
+                    {isGoal && (
+                      <div className="absolute inset-[15%] rounded-full border-2 border-dashed border-[#000000] flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#000000]/30" />
+                      </div>
+                    )}
+
+                    {/* Player Pawn (Black Disk) */}
+                    {isPion && (
+                      <div className="absolute inset-[15%] rounded-full bg-[#000000] transition-all duration-150 shadow-xs" />
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Victory Overlay */}
+          {isWon && (
+            <div className="absolute inset-0 bg-white/95 backdrop-blur-2xs flex flex-col items-center justify-center gap-3 animate-in fade-in zoom-in-95 duration-200 border-2 border-[#000000]">
+              <div className="text-xl sm:text-2xl font-black uppercase tracking-widest text-[#000000]">
+                Level complete
+              </div>
+              <div className="text-xs sm:text-sm font-mono text-[#000000]/70">
+                Completed in {moves} moves (Par: {currentLevel.par})
+              </div>
+              <button
+                onClick={() => {
+                  const next = (levelIndex + 1) % LEVELS.length;
+                  loadLevel(next);
+                }}
+                className="mt-2 inline-flex items-center gap-2 rounded-full bg-[#000000] text-white px-6 py-2.5 text-xs font-bold hover:bg-[#262626] active:scale-95 transition-all shadow-sm"
+              >
+                <span>Next level →</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Game Controls */}
+        <div className="flex items-center justify-center gap-2.5 mt-4 w-full">
+          <button
+            onClick={() => handleRotate('left')}
+            disabled={isRotating}
+            className="flex-1 py-2.5 px-3 rounded-full border border-[#000000] text-xs font-bold text-[#000000] hover:bg-[#000000] hover:text-white active:scale-95 transition-all disabled:opacity-50"
+          >
+            ← Left
+          </button>
+
+          <button
+            onClick={() => loadLevel(levelIndex)}
+            disabled={isRotating}
+            className="py-2.5 px-4 rounded-full border border-[#000000]/30 text-xs font-bold text-[#000000]/70 hover:border-[#000000] hover:text-[#000000] active:scale-95 transition-all disabled:opacity-50"
+          >
+            Restart
+          </button>
+
+          <button
+            onClick={() => handleRotate('right')}
+            disabled={isRotating}
+            className="flex-1 py-2.5 px-3 rounded-full border border-[#000000] text-xs font-bold text-[#000000] hover:bg-[#000000] hover:text-white active:scale-95 transition-all disabled:opacity-50"
+          >
+            Right →
+          </button>
+        </div>
       </div>
 
-      {/* Studio Header */}
-      <header className="relative z-10 w-full px-6 py-5 max-w-7xl mx-auto flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#005047] text-white font-black text-lg shadow-sm transition-transform group-hover:scale-105 group-hover:rotate-3">
-            W
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-base tracking-tight text-[#1c1917]">
-                FreeRooms School
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-[#e3f5ec] text-[#005047] border border-[#00875f]/30 px-2 py-0.5 rounded-full">
-                404 Studio
-              </span>
-            </div>
-          </div>
-        </Link>
-
-        {/* Sound Toggle & Back Pill */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            title={soundEnabled ? "Mute audio" : "Enable sound"}
-            className="flex items-center justify-center h-10 w-10 rounded-full bg-white border border-[#e7e5e4] text-[#78716c] hover:text-[#1c1917] hover:border-[#d6d3d1] shadow-2xs transition-all"
-          >
-            {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-[#a8a29e]" />}
-          </button>
-
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 rounded-full bg-[#1c1917] hover:bg-[#005047] text-white px-5 py-2.5 text-xs font-bold transition-all shadow-sm hover:shadow-md active:scale-95"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Go Home</span>
-          </Link>
-        </div>
-      </header>
-
-      {/* Main Showcase Hero */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-8 text-center max-w-3xl mx-auto w-full">
-
-        {/* Playful Floating Speech Bubble */}
-        <div className="mb-4 inline-flex items-center gap-2 bg-white/90 backdrop-blur-md border border-[#e7e5e4] px-4 py-2 rounded-full shadow-sm animate-bounce">
-          <span className="text-base">🦆</span>
-          <span className="text-xs font-bold text-[#44403c]">
-            {currentQuackText}
-          </span>
-        </div>
-
-        {/* 3D-Shaded Playful Mascot (The FreeRooms Study Duck) */}
-        <div
-          onClick={handleMascotClick}
-          className="relative cursor-pointer group select-none transition-transform duration-200 active:scale-90 my-2"
-          style={{
-            transform: `perspective(800px) rotateY(${mouseOffset.x * 12}deg) rotateX(${-mouseOffset.y * 12}deg) ${
-              isSquished ? 'scale(1.15, 0.85)' : 'scale(1)'
-            }`,
-          }}
+      {/* Hints & Home Footer */}
+      <div className="flex flex-col items-center gap-2 text-center my-2 max-w-md">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[#000000]/20 hover:border-[#000000] px-5 py-1.5 text-xs font-bold text-[#000000] transition-all hover:scale-105 active:scale-95"
         >
-          {/* Soft Drop Shadow under Mascot */}
-          <div
-            className="absolute bottom-1 left-1/2 -translate-x-1/2 w-48 h-10 bg-[#78716c]/20 rounded-full blur-md transition-all duration-300 group-hover:w-56 group-hover:bg-[#78716c]/30"
-          />
-
-          {/* SVG 3D-Shaded Rubber Duck with Glasses & Book */}
-          <svg
-            viewBox="0 0 240 220"
-            className="h-56 sm:h-64 w-56 sm:w-64 drop-shadow-[0_20px_35px_rgba(202,138,4,0.25)] transition-all duration-300"
-          >
-            <defs>
-              {/* Radial 3D Gradients */}
-              <radialGradient id="duckBody" cx="40%" cy="35%" r="60%">
-                <stop offset="0%" stopColor="#fef08a" />
-                <stop offset="60%" stopColor="#facc15" />
-                <stop offset="100%" stopColor="#ca8a04" />
-              </radialGradient>
-
-              <radialGradient id="duckHead" cx="40%" cy="30%" r="65%">
-                <stop offset="0%" stopColor="#fef9c3" />
-                <stop offset="55%" stopColor="#fde047" />
-                <stop offset="100%" stopColor="#eab308" />
-              </radialGradient>
-
-              <radialGradient id="beakGrad" cx="30%" cy="30%" r="70%">
-                <stop offset="0%" stopColor="#fdba74" />
-                <stop offset="60%" stopColor="#f97316" />
-                <stop offset="100%" stopColor="#c2410c" />
-              </radialGradient>
-
-              <linearGradient id="glassesFrame" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#005047" />
-                <stop offset="100%" stopColor="#00875f" />
-              </linearGradient>
-
-              <linearGradient id="bookCover" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#005047" />
-                <stop offset="100%" stopColor="#002420" />
-              </linearGradient>
-            </defs>
-
-            {/* Floating Mini School Book under Duck */}
-            <g transform="translate(60, 158)">
-              <rect x="0" y="0" width="120" height="22" rx="6" fill="url(#bookCover)" />
-              <rect x="6" y="5" width="108" height="4" rx="2" fill="#e3f5ec" opacity="0.6" />
-              <text x="60" y="15" textAnchor="middle" fill="#e3f5ec" fontSize="8" fontWeight="bold" fontFamily="monospace">
-                TIMETABLE 404
-              </text>
-            </g>
-
-            {/* Duck Body */}
-            <path
-              d="M 50 145 C 40 180, 160 185, 185 145 C 205 115, 175 90, 140 100 C 125 105, 70 110, 50 145 Z"
-              fill="url(#duckBody)"
-            />
-
-            {/* Duck Tail Tip */}
-            <path
-              d="M 45 135 C 25 120, 35 150, 60 155 Z"
-              fill="#eab308"
-            />
-
-            {/* Duck Wing */}
-            <path
-              d="M 95 125 C 90 145, 130 155, 145 130 C 150 120, 120 115, 95 125 Z"
-              fill="#eab308"
-              opacity="0.8"
-            />
-
-            {/* Duck Head */}
-            <circle cx="145" cy="78" r="42" fill="url(#duckHead)" />
-
-            {/* Cheeks */}
-            <ellipse cx="122" cy="92" rx="6" ry="4" fill="#fb923c" opacity="0.5" />
-            <ellipse cx="168" cy="92" rx="6" ry="4" fill="#fb923c" opacity="0.5" />
-
-            {/* Beak */}
-            <path
-              d="M 175 76 C 215 76, 210 98, 170 94 Z"
-              fill="url(#beakGrad)"
-            />
-
-            {/* Interactive Eyes (Look at Mouse Cursor) */}
-            {/* Left Eye */}
-            <circle cx="134" cy="72" r="10" fill="#ffffff" stroke="#eab308" strokeWidth="1" />
-            <circle
-              cx={134 + mouseOffset.x * 4}
-              cy={72 + mouseOffset.y * 4}
-              r="4.5"
-              fill="#1c1917"
-            />
-            <circle
-              cx={134 + mouseOffset.x * 4 - 1.5}
-              cy={72 + mouseOffset.y * 4 - 1.5}
-              r="1.5"
-              fill="#ffffff"
-            />
-
-            {/* Right Eye */}
-            <circle cx="158" cy="72" r="10" fill="#ffffff" stroke="#eab308" strokeWidth="1" />
-            <circle
-              cx={158 + mouseOffset.x * 4}
-              cy={72 + mouseOffset.y * 4}
-              r="4.5"
-              fill="#1c1917"
-            />
-            <circle
-              cx={158 + mouseOffset.x * 4 - 1.5}
-              cy={72 + mouseOffset.y * 4 - 1.5}
-              r="1.5"
-              fill="#ffffff"
-            />
-
-            {/* Cute Study Glasses Frame */}
-            <g stroke="url(#glassesFrame)" strokeWidth="3" fill="none" opacity="0.9">
-              <circle cx="134" cy="72" r="12" />
-              <circle cx="158" cy="72" r="12" />
-              <line x1="146" y1="72" x2="146" y2="72" strokeWidth="4" />
-              <path d="M 122 72 Q 110 65 105 70" />
-            </g>
-
-            {/* Small Graduation / Study Cap */}
-            <g transform="translate(145, 38)">
-              <polygon points="0,-12 28,0 0,12 -28,0" fill="#005047" stroke="#003d36" strokeWidth="1.5" />
-              <rect x="-10" y="8" width="20" height="8" rx="2" fill="#003d36" />
-              {/* Tassel */}
-              <circle cx="0" cy="0" r="2.5" fill="#facc15" />
-              <path d="M 0 0 Q 14 10 18 20" stroke="#facc15" strokeWidth="2" fill="none" />
-              <circle cx="18" cy="20" r="2.5" fill="#facc15" />
-            </g>
-          </svg>
-
-          {/* Squeeze Hint Badge */}
-          <div className="absolute -bottom-2 right-4 bg-white/90 border border-[#e7e5e4] px-3 py-1 rounded-full text-[11px] font-extrabold text-[#005047] shadow-sm flex items-center gap-1 group-hover:scale-105 transition-transform">
-            <Sparkles className="h-3 w-3 text-amber-500" />
-            <span>Squeeze Me ({quackCount})</span>
-          </div>
-
-          {/* Floating particle burst on click */}
-          {floatingHearts.map(p => (
-            <span
-              key={p.id}
-              className="absolute text-xl pointer-events-none animate-out fade-out slide-out-to-top-12 duration-700 font-bold"
-              style={{ left: p.x, top: p.y }}
-            >
-              ✨
-            </span>
-          ))}
-        </div>
-
-        {/* Big Bold Playful Studio Heading (Inspired by New Studio) */}
-        <div className="mt-6 space-y-3">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#f5f5f4] border border-[#e7e5e4] text-xs font-black uppercase tracking-widest text-[#78716c]">
-            Error 404 • Lost in Corridors
-          </div>
-
-          <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-[#1c1917] leading-none">
-            Sorry, we couldn&apos;t <span className="text-[#005047] underline decoration-[#facc15] decoration-wavy decoration-4">quack</span> that for you.
-          </h1>
-
-          <p className="text-sm sm:text-base text-[#78716c] max-w-lg mx-auto font-medium">
-            This classroom or period doesn&apos;t exist on Wrenn School&apos;s active timetable. Let&apos;s get you back to your study rooms.
-          </p>
-        </div>
-
-        {/* Action Hub Buttons */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 w-full max-w-md">
-          <Link
-            href="/"
-            className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-[#005047] hover:bg-[#003d36] text-white px-7 py-4 text-sm font-extrabold transition-all shadow-lg hover:shadow-xl active:scale-95"
-          >
-            <Compass className="h-4 w-4" />
-            <span>Back to Period Matrix</span>
-          </Link>
-
-          <button
-            onClick={handleMascotClick}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-white border border-[#e7e5e4] hover:bg-[#fafaf9] hover:border-[#d6d3d1] text-[#1c1917] px-6 py-4 text-sm font-bold transition-all shadow-xs"
-          >
-            <span>Quack Mascot</span>
-            <span className="text-xs bg-[#fef08a] px-2 py-0.5 rounded-full font-black text-[#854d0e]">
-              {quackCount}
-            </span>
-          </button>
-        </div>
-
-        {/* Quick Period Links Bar */}
-        <div className="mt-10 pt-6 border-t border-[#e7e5e4] w-full max-w-lg flex items-center justify-center gap-2 text-xs font-bold text-[#78716c]">
-          <span className="text-[11px] font-semibold text-[#a8a29e] uppercase tracking-wider mr-1">
-            Jump directly:
-          </span>
-          {['P1', 'P2', 'P3', 'P4', 'P5'].map(p => (
-            <Link
-              key={p}
-              href="/"
-              className="px-2.5 py-1 rounded-lg bg-white border border-[#e7e5e4] hover:border-[#00875f] hover:text-[#005047] transition-all shadow-2xs"
-            >
-              {p}
-            </Link>
-          ))}
-        </div>
-
-      </main>
-
-      {/* Minimal Studio Footer */}
-      <footer className="relative z-10 w-full py-4 text-center text-xs text-[#a8a29e] max-w-7xl mx-auto px-6 border-t border-[#f0ede6]">
-        <span>Wrenn FreeRooms • Playful 404 Studio Edition • Periods 1 – 5</span>
-      </footer>
+          <span>Home</span>
+        </Link>
+        <p className="text-[11px] font-mono text-[#000000]/40 mt-1">
+          Rotate the board. Let it fall. Find the exit.
+        </p>
+      </div>
     </div>
   );
 }
