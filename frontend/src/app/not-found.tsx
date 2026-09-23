@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import confetti from 'canvas-confetti';
 
@@ -131,183 +131,215 @@ const LEVELS: LevelData[] = [
 
 export default function NotFound() {
   const [levelIndex, setLevelIndex] = useState(0);
-  const [grid, setGrid] = useState<number[][]>(() =>
-    LEVELS[0].grid.map(row => [...row])
-  );
-  const [pionPos, setPionPos] = useState<{ r: number; c: number }>({ r: 0, c: 0 });
-  const [holePos, setHolePos] = useState<{ r: number; c: number }>({ r: 0, c: 0 });
   const [moves, setMoves] = useState(0);
-  const [isRotating, setIsRotating] = useState(false);
-  const [rotationAngle, setRotationAngle] = useState(0);
   const [isWon, setIsWon] = useState(false);
-  const [isFalling, setIsFalling] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
 
-  const boardRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef<number | null>(null);
+  // Ball animated pixel position in percentage (0 to 100)
+  const [ballPos, setBallPos] = useState({ r: 0, c: 0 });
+  const [holePos, setHolePos] = useState({ r: 0, c: 0 });
+  const [boardRotation, setBoardRotation] = useState(0);
 
-  // Initialize level
-  const loadLevel = useCallback((idx: number) => {
+  // Dynamic grid state
+  const gridRef = useRef<number[][]>([]);
+  const pionRef = useRef<{ r: number; c: number }>({ r: 0, c: 0 });
+  const holeRef = useRef<{ r: number; c: number }>({ r: 0, c: 0 });
+  const boardElRef = useRef<HTMLDivElement>(null);
+  const currentLevel = LEVELS[levelIndex] || LEVELS[0];
+
+  // Load level cleanly
+  const initLevel = useCallback((idx: number) => {
     const lvl = LEVELS[idx] || LEVELS[0];
-    const initialGrid = lvl.grid.map(row => [...row]);
+    const newGrid = lvl.grid.map(row => [...row]);
 
     let pion = { r: 0, c: 0 };
     let hole = { r: 0, c: 0 };
 
     for (let r = 0; r < SIZE; r++) {
       for (let c = 0; c < SIZE; c++) {
-        if (initialGrid[r][c] === 3) pion = { r, c };
-        if (initialGrid[r][c] === 2) hole = { r, c };
+        if (newGrid[r][c] === 3) {
+          pion = { r, c };
+          newGrid[r][c] = 0; // Pawn tracked separately for continuous smooth animation
+        }
+        if (newGrid[r][c] === 2) {
+          hole = { r, c };
+        }
       }
     }
 
+    gridRef.current = newGrid;
+    pionRef.current = pion;
+    holeRef.current = hole;
+
     setLevelIndex(idx);
-    setGrid(initialGrid);
-    setPionPos(pion);
-    setHolePos(hole);
     setMoves(0);
     setIsWon(false);
-    setIsRotating(false);
-    setRotationAngle(0);
-    setIsFalling(false);
+    setIsBusy(false);
+    setBoardRotation(0);
+    setBallPos(pion);
+    setHolePos(hole);
   }, []);
 
   useEffect(() => {
-    loadLevel(0);
-  }, [loadLevel]);
+    initLevel(0);
+  }, [initLevel]);
 
-  // Apply gravity: drop player straight down
-  const applyGravity = useCallback(
-    (currentGrid: number[][], currentPion: { r: number; c: number }, currentHole: { r: number; c: number }) => {
-      const { r: fromR, c } = currentPion;
-      let destR = fromR;
+  // Rotate Matrix internally
+  const rotateGridMatrix = (dir: 'left' | 'right') => {
+    const old = gridRef.current;
+    const next = Array.from({ length: SIZE }, () => new Array(SIZE).fill(0));
 
-      for (let row = fromR + 1; row < SIZE; row++) {
-        const val = currentGrid[row][c];
-        if (val === 1) break; // Hits wall
-        destR = row;
-        if (row === currentHole.r && c === currentHole.c) break; // Hits goal
-      }
-
-      if (destR === fromR) {
-        // Did not move; check if on hole
-        if (fromR === currentHole.r && c === currentHole.c) {
-          setIsWon(true);
-          try {
-            confetti({
-              particleCount: 50,
-              spread: 60,
-              origin: { y: 0.6 },
-              colors: ['#000000', '#555555', '#aaaaaa']
-            });
-          } catch {}
-        }
-        setIsRotating(false);
-        setIsFalling(false);
-        return;
-      }
-
-      setIsFalling(true);
-      const newGrid = currentGrid.map(row => [...row]);
-      newGrid[fromR][c] = 0;
-      newGrid[destR][c] = 3;
-
-      // Animate fall duration
-      setTimeout(() => {
-        setGrid(newGrid);
-        setPionPos({ r: destR, c });
-        setIsFalling(false);
-        setIsRotating(false);
-
-        if (destR === currentHole.r && c === currentHole.c) {
-          setIsWon(true);
-          try {
-            confetti({
-              particleCount: 60,
-              spread: 70,
-              origin: { y: 0.6 },
-              colors: ['#000000', '#333333', '#888888']
-            });
-          } catch {}
-        }
-      }, 160);
-    },
-    []
-  );
-
-  // Rotate board
-  const handleRotate = useCallback(
-    (dir: 'left' | 'right') => {
-      if (isRotating || isWon) return;
-
-      setIsRotating(true);
-      setMoves(m => m + 1);
-
-      const angleDelta = dir === 'right' ? 90 : -90;
-      setRotationAngle(prev => prev + angleDelta);
-
-      // Perform matrix rotation after visual turn
-      setTimeout(() => {
-        const nextGrid = Array.from({ length: SIZE }, () => new Array(SIZE).fill(0));
-
-        for (let r = 0; r < SIZE; r++) {
-          for (let c = 0; c < SIZE; c++) {
-            if (dir === 'right') {
-              nextGrid[c][SIZE - 1 - r] = grid[r][c];
-            } else {
-              nextGrid[SIZE - 1 - c][r] = grid[r][c];
-            }
-          }
-        }
-
-        let nextPion: { r: number; c: number };
-        let nextHole: { r: number; c: number };
-
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
         if (dir === 'right') {
-          nextPion = { r: pionPos.c, c: SIZE - 1 - pionPos.r };
-          nextHole = { r: holePos.c, c: SIZE - 1 - holePos.r };
+          next[c][SIZE - 1 - r] = old[r][c];
         } else {
-          nextPion = { r: SIZE - 1 - pionPos.c, c: pionPos.r };
-          nextHole = { r: SIZE - 1 - holePos.c, c: holePos.r };
+          next[SIZE - 1 - c][r] = old[r][c];
         }
+      }
+    }
 
-        setGrid(nextGrid);
-        setPionPos(nextPion);
-        setHolePos(nextHole);
+    const p = pionRef.current;
+    const h = holeRef.current;
 
-        // Reset visual rotation transform instantly without transition
-        setRotationAngle(0);
+    const nextPion = dir === 'right'
+      ? { r: p.c, c: SIZE - 1 - p.r }
+      : { r: SIZE - 1 - p.c, c: p.r };
 
-        // Immediately drop pawn downward with gravity
-        applyGravity(nextGrid, nextPion, nextHole);
-      }, 380);
-    },
-    [isRotating, isWon, grid, pionPos, holePos, applyGravity]
-  );
+    const nextHole = dir === 'right'
+      ? { r: h.c, c: SIZE - 1 - h.r }
+      : { r: SIZE - 1 - h.c, c: h.r };
 
-  // Keyboard navigation
+    gridRef.current = next;
+    pionRef.current = nextPion;
+    holeRef.current = nextHole;
+    setHolePos(nextHole);
+  };
+
+  // Animate ball drop with cubic ease-in gravity (t^3)
+  const animateBallGravity = () => {
+    const { r: fromR, c } = pionRef.current;
+    let destR = fromR;
+
+    for (let row = fromR + 1; row < SIZE; row++) {
+      const val = gridRef.current[row][c];
+      if (val === 1) break; // Hits a wall
+      destR = row;
+      if (row === holeRef.current.r && c === holeRef.current.c) break; // Hits exit
+    }
+
+    if (destR === fromR) {
+      // Check if won
+      if (fromR === holeRef.current.r && c === holeRef.current.c) {
+        triggerVictory();
+      }
+      setIsBusy(false);
+      return;
+    }
+
+    const distance = destR - fromR;
+    const duration = Math.min(90 + distance * 36, 450); // Fluid gravity timing
+    const startTs = performance.now();
+
+    const frameStep = (now: number) => {
+      const elapsed = now - startTs;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedGravity = progress * progress * progress; // Real gravity acceleration!
+
+      const currentR = fromR + (destR - fromR) * easedGravity;
+      setBallPos({ r: currentR, c });
+
+      if (progress < 1) {
+        requestAnimationFrame(frameStep);
+      } else {
+        pionRef.current = { r: destR, c };
+        setBallPos({ r: destR, c });
+        setIsBusy(false);
+
+        if (destR === holeRef.current.r && c === holeRef.current.c) {
+          triggerVictory();
+        }
+      }
+    };
+
+    requestAnimationFrame(frameStep);
+  };
+
+  // Trigger Victory State
+  const triggerVictory = () => {
+    setIsWon(true);
+    try {
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.6 },
+        colors: ['#000000', '#444444', '#888888']
+      });
+    } catch {}
+  };
+
+  // Trigger Rotation with smooth transition & subsequent gravity drop
+  const rotate = (dir: 'left' | 'right') => {
+    if (isBusy || isWon) return;
+
+    setIsBusy(true);
+    setMoves(m => m + 1);
+
+    const board = boardElRef.current;
+    if (!board) return;
+
+    const angleChange = dir === 'right' ? 90 : -90;
+
+    // 1. Smoothly animate visual rotation
+    board.style.transition = 'transform 0.38s cubic-bezier(0.65, 0, 0.35, 1)';
+    board.style.transform = `rotate(${angleChange}deg)`;
+
+    const handleTransitionEnd = () => {
+      board.removeEventListener('transitionend', handleTransitionEnd);
+
+      // 2. Instantly reset transform angle while rotating the underlying matrix
+      board.style.transition = 'none';
+      board.style.transform = 'rotate(0deg)';
+
+      rotateGridMatrix(dir);
+      setBallPos(pionRef.current);
+
+      // Force synchronous DOM reflow so resetting to 0deg doesn't flash
+      void board.offsetWidth;
+
+      // 3. Drop the ball with smooth physics acceleration
+      animateBallGravity();
+    };
+
+    board.addEventListener('transitionend', handleTransitionEnd, { once: true });
+  };
+
+  // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
         e.preventDefault();
-        handleRotate('left');
+        rotate('left');
       } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
         e.preventDefault();
-        handleRotate('right');
+        rotate('right');
       } else if (e.key === 'r' || e.key === 'R') {
         e.preventDefault();
-        loadLevel(levelIndex);
+        initLevel(levelIndex);
       } else if ((e.key === 'Enter' || e.key === ' ') && isWon) {
         e.preventDefault();
         const next = (levelIndex + 1) % LEVELS.length;
-        loadLevel(next);
+        initLevel(next);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleRotate, loadLevel, levelIndex, isWon]);
+  }, [isBusy, isWon, levelIndex]);
 
   // Touch Swipe navigation
+  const touchStartX = useRef<number | null>(null);
+
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   };
@@ -316,13 +348,11 @@ export default function NotFound() {
     if (touchStartX.current === null) return;
     const diffX = e.changedTouches[0].clientX - touchStartX.current;
     if (Math.abs(diffX) > 40) {
-      if (diffX > 0) handleRotate('right');
-      else handleRotate('left');
+      if (diffX > 0) rotate('right');
+      else rotate('left');
     }
     touchStartX.current = null;
   };
-
-  const currentLevel = LEVELS[levelIndex] || LEVELS[0];
 
   return (
     <div
@@ -330,64 +360,71 @@ export default function NotFound() {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Top Spacer */}
-      <div className="w-full" />
+      {/* Top Header */}
+      <div className="w-full flex items-center justify-between max-w-[520px] pt-1 font-mono">
+        <span className="text-xs sm:text-sm font-semibold tracking-widest text-[#000000]">
+          Moves: {moves}
+        </span>
+        <span className="text-xs sm:text-sm font-black tracking-[0.2em] uppercase text-[#000000]">
+          404
+        </span>
+        <span className="text-xs sm:text-sm font-medium tracking-widest text-[#000000]/50">
+          {currentLevel.label}
+        </span>
+      </div>
 
-      {/* Center Game Core */}
-      <div className="flex flex-col items-center w-full max-w-[520px]">
-        {/* Header: Score / 404 / Level */}
-        <div className="flex items-center justify-between w-full mb-3.5 px-1 font-mono">
-          <span className="text-xs sm:text-sm font-semibold tracking-widest text-[#000000]">
-            Moves: {moves}
-          </span>
-          <span className="text-xs sm:text-sm font-extrabold tracking-[0.2em] uppercase text-[#000000]">
-            404
-          </span>
-          <span className="text-xs sm:text-sm font-medium tracking-widest text-[#000000]/50">
-            {currentLevel.label}
-          </span>
-        </div>
-
+      {/* Main Game Core */}
+      <div className="flex flex-col items-center w-full max-w-[520px] my-auto">
         {/* 13x13 Game Board Container */}
-        <div className="relative w-[min(88vw,70vh,460px)] h-[min(88vw,70vh,460px)]">
+        <div className="relative w-[min(88vw,68vh,460px)] h-[min(88vw,68vh,460px)]">
           {/* Rotating Board */}
           <div
-            ref={boardRef}
-            className="w-full h-full border-2 border-[#000000] grid bg-white relative box-border"
+            ref={boardElRef}
+            className="w-full h-full border-2 border-[#000000] grid bg-white relative box-border overflow-hidden"
             style={{
               gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
               gridTemplateRows: `repeat(${SIZE}, 1fr)`,
-              transform: `rotate(${rotationAngle}deg)`,
-              transition: isRotating ? 'transform 0.38s cubic-bezier(0.65, 0, 0.35, 1)' : 'none',
               transformOrigin: 'center center',
             }}
           >
-            {grid.map((row, r) =>
-              row.map((val, c) => {
-                const isWall = val === 1;
-                const isGoal = r === holePos.r && c === holePos.c;
-                const isPion = val === 3;
-
-                return (
+            {/* Grid Cells (Walls and Empty slots) */}
+            {gridRef.current.length > 0 &&
+              gridRef.current.map((row, r) =>
+                row.map((val, c) => (
                   <div
                     key={`${r}-${c}`}
-                    className={`relative box-border ${isWall ? 'bg-[#000000]' : 'bg-transparent'}`}
-                  >
-                    {/* Goal Exit Hole */}
-                    {isGoal && (
-                      <div className="absolute inset-[15%] rounded-full border-2 border-dashed border-[#000000] flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#000000]/30" />
-                      </div>
-                    )}
+                    className={`box-border ${val === 1 ? 'bg-[#000000]' : 'bg-transparent'}`}
+                  />
+                ))
+              )}
 
-                    {/* Player Pawn (Black Disk) */}
-                    {isPion && (
-                      <div className="absolute inset-[15%] rounded-full bg-[#000000] transition-all duration-150 shadow-xs" />
-                    )}
-                  </div>
-                );
-              })
-            )}
+            {/* Exit Goal Portal */}
+            <div
+              className="absolute pointer-events-none transition-all duration-75"
+              style={{
+                width: `${100 / SIZE}%`,
+                height: `${100 / SIZE}%`,
+                top: `${holePos.r * (100 / SIZE)}%`,
+                left: `${holePos.c * (100 / SIZE)}%`,
+              }}
+            >
+              <div className="absolute inset-[14%] rounded-full border-2 border-dashed border-[#000000] flex items-center justify-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#000000]/30" />
+              </div>
+            </div>
+
+            {/* Continuous Smooth Player Ball */}
+            <div
+              className="absolute pointer-events-none z-10 will-change-transform"
+              style={{
+                width: `${100 / SIZE}%`,
+                height: `${100 / SIZE}%`,
+                top: `${ballPos.r * (100 / SIZE)}%`,
+                left: `${ballPos.c * (100 / SIZE)}%`,
+              }}
+            >
+              <div className="absolute inset-[15%] rounded-full bg-[#000000] shadow-sm" />
+            </div>
           </div>
 
           {/* Victory Overlay */}
@@ -402,7 +439,7 @@ export default function NotFound() {
               <button
                 onClick={() => {
                   const next = (levelIndex + 1) % LEVELS.length;
-                  loadLevel(next);
+                  initLevel(next);
                 }}
                 className="mt-2 inline-flex items-center gap-2 rounded-full bg-[#000000] text-white px-6 py-2.5 text-xs font-bold hover:bg-[#262626] active:scale-95 transition-all shadow-sm"
               >
@@ -415,25 +452,25 @@ export default function NotFound() {
         {/* Game Controls */}
         <div className="flex items-center justify-center gap-2.5 mt-4 w-full">
           <button
-            onClick={() => handleRotate('left')}
-            disabled={isRotating}
-            className="flex-1 py-2.5 px-3 rounded-full border border-[#000000] text-xs font-bold text-[#000000] hover:bg-[#000000] hover:text-white active:scale-95 transition-all disabled:opacity-50"
+            onClick={() => rotate('left')}
+            disabled={isBusy}
+            className="flex-1 py-2.5 px-3 rounded-full border border-[#000000] text-xs font-bold text-[#000000] hover:bg-[#000000] hover:text-white active:scale-95 transition-all disabled:opacity-40"
           >
             ← Left
           </button>
 
           <button
-            onClick={() => loadLevel(levelIndex)}
-            disabled={isRotating}
-            className="py-2.5 px-4 rounded-full border border-[#000000]/30 text-xs font-bold text-[#000000]/70 hover:border-[#000000] hover:text-[#000000] active:scale-95 transition-all disabled:opacity-50"
+            onClick={() => initLevel(levelIndex)}
+            disabled={isBusy}
+            className="py-2.5 px-4 rounded-full border border-[#000000]/30 text-xs font-bold text-[#000000]/70 hover:border-[#000000] hover:text-[#000000] active:scale-95 transition-all disabled:opacity-40"
           >
             Restart
           </button>
 
           <button
-            onClick={() => handleRotate('right')}
-            disabled={isRotating}
-            className="flex-1 py-2.5 px-3 rounded-full border border-[#000000] text-xs font-bold text-[#000000] hover:bg-[#000000] hover:text-white active:scale-95 transition-all disabled:opacity-50"
+            onClick={() => rotate('right')}
+            disabled={isBusy}
+            className="flex-1 py-2.5 px-3 rounded-full border border-[#000000] text-xs font-bold text-[#000000] hover:bg-[#000000] hover:text-white active:scale-95 transition-all disabled:opacity-40"
           >
             Right →
           </button>
@@ -441,14 +478,14 @@ export default function NotFound() {
       </div>
 
       {/* Hints & Home Footer */}
-      <div className="flex flex-col items-center gap-2 text-center my-2 max-w-md">
+      <div className="flex flex-col items-center gap-2 text-center pb-2 max-w-md">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 rounded-full border border-[#000000]/20 hover:border-[#000000] px-5 py-1.5 text-xs font-bold text-[#000000] transition-all hover:scale-105 active:scale-95"
         >
           <span>Home</span>
         </Link>
-        <p className="text-[11px] font-mono text-[#000000]/40 mt-1">
+        <p className="text-[11px] font-mono text-[#000000]/40">
           Rotate the board. Let it fall. Find the exit.
         </p>
       </div>
