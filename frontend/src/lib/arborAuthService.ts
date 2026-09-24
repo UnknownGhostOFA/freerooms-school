@@ -1,4 +1,5 @@
 import { Booking, Room } from '@/types';
+import { getCurrentSchoolWeek } from '@/lib/crowdsourceEngine';
 
 interface ArborSession {
   schoolUrl: string;
@@ -9,13 +10,32 @@ interface ArborSession {
   expiresAt: number;
   lastSync: string;
   cachedRooms: Room[];
-  cachedBookings: Booking[];
+  cachedBookings: (Booking & { weekType?: 'A' | 'B' })[];
 }
 
 const sessionStore: Map<string, ArborSession> = new Map();
 
+function getMonday(d: Date): Date {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  date.setDate(diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function addDays(d: Date, days: number): Date {
+  const date = new Date(d);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function formatDateISO(d: Date): string {
+  return d.toISOString().split('T')[0];
+}
+
 /**
- * Automates logging into Arbor via the internal API tested in timetable.py
+ * Automates logging into Arbor via the internal API
  */
 export async function authenticateArbor({
   schoolUrl,
@@ -107,17 +127,15 @@ export async function authenticateArbor({
 }
 
 /**
- * Fetches timetable entries from Arbor using the multiday calendar endpoint and tooltips
+ * Fetches full 2-week timetable entries from Arbor (Week A & Week B, Mon-Fri)
  */
 export async function fetchLiveArborData({
   schoolUrl,
   username,
-  date,
 }: {
   schoolUrl: string;
   username: string;
-  date?: string;
-}): Promise<{ rooms: Room[]; bookings: Booking[]; syncTime: string }> {
+}): Promise<{ rooms: Room[]; bookings: (Booking & { weekType: 'A' | 'B' })[]; syncTime: string }> {
   let cleanUrl = schoolUrl.trim().replace(/\/+$/, '');
   if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
     cleanUrl = `https://${cleanUrl}`;
@@ -146,117 +164,128 @@ export async function fetchLiveArborData({
   const currentSession: ArborSession = session;
   const studentId = currentSession.studentId || 1;
 
-  // Fetch weekly multiday calendar
-  const calUrl = `${cleanUrl}/calendar-entry/list-static/format/json/`;
-  const payload = {
-    action_params: {
-      view: 'multiday',
-      startDate: null,
-      endDate: null,
-      filters: [{
-        field_name: 'object',
-        value: {
-          _objectTypeId: 1,
-          _objectId: studentId
-        }
-      }]
-    }
-  };
+  // Calculate 2 consecutive school weeks (Week 1 & Week 2)
+  const now = new Date();
+  const thisMonday = getMonday(now);
+  const nextMonday = addDays(thisMonday, 7);
 
-  const calRes = await fetch(calUrl, {
-    method: 'POST',
-    headers: {
-      'Cookie': currentSession.cookies,
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
-    },
-    body: JSON.stringify(payload)
-  });
+  const week1Start = formatDateISO(thisMonday);
+  const week1End = formatDateISO(addDays(thisMonday, 4));
 
-  const calData = await calRes.json().catch(() => ({}));
-  const pages = calData.items?.[0]?.fields?.response?.value?.pages || [];
+  const week2Start = formatDateISO(nextMonday);
+  const week2End = formatDateISO(addDays(nextMonday, 4));
+
+  const week1Type: 'A' | 'B' = getCurrentSchoolWeek(thisMonday);
+  const week2Type: 'A' | 'B' = week1Type === 'A' ? 'B' : 'A';
+
+  const weeksToFetch = [
+    { start: week1Start, end: week1End, type: week1Type },
+    { start: week2Start, end: week2End, type: week2Type }
+  ];
 
   const discoveredRoomsMap = new Map<string, Room>();
-  const discoveredBookings: Booking[] = [];
+  const discoveredBookings: (Booking & { weekType: 'A' | 'B' })[] = [];
 
-  const dayMap: Record<number, string> = {
-    0: 'Monday',
-    1: 'Tuesday',
-    2: 'Wednesday',
-    3: 'Thursday',
-    4: 'Friday'
-  };
-
-  // Extract HTML pages
-  for (const page of pages) {
-    if (!page.html) continue;
-
-    const rawEvents = parseArborHtmlEvents(page.html);
-
-    for (const ev of rawEvents) {
-      // Fetch room and teacher tooltip
-      let roomRaw = '';
-      let teacherRaw = '';
-
-      if (ev.eventId) {
-        const tooltipUrl = `${cleanUrl}/students/calendar-entry/tooltip/id/${ev.eventId}`;
-        try {
-          const tRes = await fetch(tooltipUrl, {
-            headers: {
-              'Cookie': currentSession.cookies,
-              'X-Requested-With': 'XMLHttpRequest'
-            }
-          });
-          if (tRes.ok) {
-            const tHtml = await tRes.text();
-            const locMatch = tHtml.match(/<b>Location<\/b>:<span>(.*?)<\/span>/i);
-            const staffMatch = tHtml.match(/<b>Staff<\/b>:<span>(.*?)<\/span>/i);
-            if (locMatch) roomRaw = locMatch[1].trim();
-            if (staffMatch) teacherRaw = staffMatch[1].trim();
+  for (const weekReq of weeksToFetch) {
+    const calUrl = `${cleanUrl}/calendar-entry/list-static/format/json/`;
+    const payload = {
+      action_params: {
+        view: 'multiday',
+        startDate: weekReq.start,
+        endDate: weekReq.end,
+        filters: [{
+          field_name: 'object',
+          value: {
+            _objectTypeId: 1,
+            _objectId: studentId
           }
-        } catch {}
+        }]
       }
+    };
 
-      const isStudyClass = ev.subject.toLowerCase().includes('study') || 
-                           ev.subject.toLowerCase().includes('6th form') || 
-                           ev.subject.toLowerCase().includes('free');
+    try {
+      const calRes = await fetch(calUrl, {
+        method: 'POST',
+        headers: {
+          'Cookie': currentSession.cookies,
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify(payload)
+      });
 
-      // Clean room name e.g. "Wrenn School: 17" -> "17", "1: 6D" -> "6D", "1: CP3" -> "CP3"
-      const cleanRoomCode = cleanRoomName(roomRaw || ev.subject);
+      if (calRes.ok) {
+        const calData = await calRes.json().catch(() => ({}));
+        const pages = calData.items?.[0]?.fields?.response?.value?.pages || [];
 
-      if (cleanRoomCode) {
-        if (!discoveredRoomsMap.has(cleanRoomCode)) {
-          const isStudyRoom = cleanRoomCode.startsWith('6') || isStudyClass;
-          discoveredRoomsMap.set(cleanRoomCode, {
-            id: `room-${cleanRoomCode.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-            name: `Room ${cleanRoomCode}`,
-            code: cleanRoomCode,
-            block: cleanRoomCode.startsWith('6') ? 'Sixth Form Centre' : cleanRoomCode.startsWith('CP') ? 'Computing Suite' : 'Main Block',
-            floor: 'Floor 1',
-            capacity: 30,
-            type: isStudyRoom ? 'study_room' : cleanRoomCode.startsWith('CP') ? 'computer_lab' : 'classroom',
-            features: isStudyRoom 
-              ? ['Sixth Form Study', 'Silent Study Area', 'Power Outlets'] 
-              : ['Interactive Display', 'Whiteboard'],
-            isCustom: false,
-            notes: isStudyClass ? 'Designated Study Space' : undefined
-          });
+        for (const page of pages) {
+          if (!page.html) continue;
+          const rawEvents = parseArborHtmlEvents(page.html);
+
+          for (const ev of rawEvents) {
+            let roomRaw = '';
+            let teacherRaw = '';
+
+            if (ev.eventId) {
+              const tooltipUrl = `${cleanUrl}/students/calendar-entry/tooltip/id/${ev.eventId}`;
+              try {
+                const tRes = await fetch(tooltipUrl, {
+                  headers: {
+                    'Cookie': currentSession.cookies,
+                    'X-Requested-With': 'XMLHttpRequest'
+                  }
+                });
+                if (tRes.ok) {
+                  const tHtml = await tRes.text();
+                  const locMatch = tHtml.match(/<b>Location<\/b>:<span>(.*?)<\/span>/i);
+                  const staffMatch = tHtml.match(/<b>Staff<\/b>:<span>(.*?)<\/span>/i);
+                  if (locMatch) roomRaw = locMatch[1].trim();
+                  if (staffMatch) teacherRaw = staffMatch[1].trim();
+                }
+              } catch {}
+            }
+
+            const isStudyClass = ev.subject.toLowerCase().includes('study') ||
+                                 ev.subject.toLowerCase().includes('6th form') ||
+                                 ev.subject.toLowerCase().includes('free');
+
+            const cleanCode = cleanRoomName(roomRaw || ev.subject);
+
+            if (cleanCode) {
+              if (!discoveredRoomsMap.has(cleanCode)) {
+                discoveredRoomsMap.set(cleanCode, {
+                  id: `room-${cleanCode.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+                  name: `Room ${cleanCode}`,
+                  code: cleanCode,
+                  block: cleanCode.startsWith('6') ? 'Sixth Form Centre' : 'Main Block',
+                  capacity: 30,
+                  type: isStudyClass ? 'study_room' : 'classroom',
+                  features: ['Sixth Form Study'],
+                  isCustom: false,
+                  notes: isStudyClass ? 'Designated Study Space' : undefined
+                });
+              }
+
+              const roomObj = discoveredRoomsMap.get(cleanCode)!;
+
+              discoveredBookings.push({
+                id: `arbor-${weekReq.type}-${ev.eventId || Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                roomId: roomObj.id,
+                subject: ev.subject,
+                teacher: teacherRaw || undefined,
+                dayOfWeek: ev.dayIndex + 1, // 0 -> 1 (Mon), 4 -> 5 (Fri)
+                startTime: ev.start,
+                endTime: ev.end,
+                source: 'arbor',
+                weekType: weekReq.type,
+                notes: isStudyClass ? '6th Form Study Class' : undefined
+              });
+            }
+          }
         }
-
-        const roomObj = discoveredRoomsMap.get(cleanRoomCode)!;
-
-        discoveredBookings.push({
-          id: `arbor-${ev.eventId || Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          roomId: roomObj.id,
-          subject: ev.subject,
-          teacher: teacherRaw || undefined,
-          dayOfWeek: ev.dayIndex + 1, // 0 -> 1 (Mon), 4 -> 5 (Fri)
-          startTime: ev.start,
-          endTime: ev.end,
-          source: 'arbor',
-          notes: isStudyClass ? '6th Form Study Class' : undefined
-        });
       }
+    } catch (e) {
+      console.warn(`Failed to fetch week ${weekReq.type}:`, e);
     }
   }
 
@@ -291,9 +320,19 @@ export function getSessionStatus(schoolUrl: string, username: string) {
 
 function cleanRoomName(raw: string): string {
   if (!raw) return '';
-  let clean = raw.replace(/^.*?:\s*/, '').trim(); // strip "Wrenn School:" or "1:"
-  clean = clean.replace(/^Room\s*/i, '').trim();
+  let clean = raw.replace(/^.*?:\s*/i, '').trim();
+  clean = clean.replace(/^room[\s\-_]*/i, '').trim();
+  clean = clean.replace(/[^a-zA-Z0-9]/g, '');
   return clean.toUpperCase();
+}
+
+function extractCookiesFromResponse(resp: any): string {
+  const setCookies = resp.headers?.raw?.()['set-cookie'] || [];
+  if (Array.isArray(setCookies) && setCookies.length > 0) {
+    return setCookies.map((c: string) => c.split(';')[0]).join('; ');
+  }
+  const cookieHeader = resp.headers?.get?.('set-cookie') || '';
+  return cookieHeader.split(';')[0] || '';
 }
 
 interface ParsedHtmlEvent {
@@ -306,16 +345,14 @@ interface ParsedHtmlEvent {
 
 function parseArborHtmlEvents(html: string): ParsedHtmlEvent[] {
   const events: ParsedHtmlEvent[] = [];
-  
-  // Regex extraction from mis-cal-day table
+
   const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
   const eventRegex = /<div[^>]*class=["'][^"']*mis-cal-event[^"']*["'][^>]*data-eventid=["']([^"']*)["'][^>]*>([\s\S]*?)<\/div>/gi;
   const timeRegex = /class=["'][^"']*mis-cal-event-time[^"']*["']>([^<]+)</i;
   const titleRegex = /<b[^>]*class=["']title["'][^>]*>([^<]+)<\/b>/i;
 
   const cells = Array.from(html.matchAll(cellRegex));
-  
-  // Cells 1 to 5 correspond to Monday - Friday
+
   for (let cellIdx = 1; cellIdx < Math.min(6, cells.length); cellIdx++) {
     const cellHtml = cells[cellIdx][1];
     const dayIndex = cellIdx - 1; // 0=Mon .. 4=Fri
@@ -329,35 +366,17 @@ function parseArborHtmlEvents(html: string): ParsedHtmlEvent[] {
       const titleMatch = evInner.match(titleRegex);
 
       if (timeMatch && titleMatch) {
-        const timeText = timeMatch[1].trim();
-        const title = titleMatch[1].trim();
-
-        if (timeText.includes('-')) {
-          const parts = timeText.split('-');
-          const start = parts[0].trim();
-          const end = parts[1].trim();
-
-          events.push({
-            eventId,
-            start,
-            end,
-            subject: title,
-            dayIndex,
-          });
-        }
+        const timeParts = timeMatch[1].trim().split(/\s*-\s*/);
+        events.push({
+          eventId,
+          start: timeParts[0] || '09:00',
+          end: timeParts[1] || '10:00',
+          subject: titleMatch[1].trim(),
+          dayIndex,
+        });
       }
     }
   }
 
   return events;
-}
-
-function extractCookiesFromResponse(res: Response): string {
-  const setCookie = res.headers.get('set-cookie');
-  if (!setCookie) return '';
-
-  return setCookie
-    .split(/,(?=[^;]+;)/)
-    .map(c => c.split(';')[0].trim())
-    .join('; ');
 }

@@ -1,12 +1,14 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { ArborMatrixProvider, useArborMatrix } from '@/context/ArborMatrixContext';
 import { ArborNavbar } from '@/components/arbor/ArborNavbar';
 import { ArborPeriodMatrix } from '@/components/arbor/ArborPeriodMatrix';
 import { ArborLoginPage } from '@/components/arbor/ArborLoginPage';
 import { PeriodDetailModal } from '@/components/arbor/PeriodDetailModal';
 import { AddFreeRoomModal } from '@/components/arbor/AddFreeRoomModal';
+import { CookieConsentBanner } from '@/components/common/CookieConsentBanner';
 
 function MainDashboard() {
   const { studentSession, isHydrated } = useArborMatrix();
@@ -44,13 +46,19 @@ function MainDashboard() {
       </main>
 
       {/* Clean Arbor Minimalist Footer */}
-      <footer className="border-t border-[#dbe1dd] bg-white py-3.5 text-center text-xs text-[#596560]">
-        <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <footer className="border-t border-[#dbe1dd] bg-white py-4 text-center text-xs text-[#596560]">
+        <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p>
-            Wrenn School FreeRooms • Arbor 6th Form Study Timetable Matrix
+            Wrenn School FreeRooms • Arbor 6th Form 2-Week Study Matrix
           </p>
-          <div className="text-[#78827e] text-[11px]">
-            Anonymous Community Study Platform
+          <div className="flex items-center gap-3 text-[#596560] text-xs">
+            <Link href="/terms" className="hover:text-[#005047] hover:underline">
+              Terms & Conditions
+            </Link>
+            <span>•</span>
+            <Link href="/privacy" className="hover:text-[#005047] hover:underline">
+              Privacy Policy
+            </Link>
           </div>
         </div>
         <div className="mx-auto max-w-7xl px-4 mt-2 text-[10px] text-[#8c9692]">
@@ -58,9 +66,10 @@ function MainDashboard() {
         </div>
       </footer>
 
-      {/* Modals */}
+      {/* Modals & Consent */}
       <PeriodDetailModal />
       <AddFreeRoomModal />
+      <CookieConsentBanner />
     </div>
   );
 }

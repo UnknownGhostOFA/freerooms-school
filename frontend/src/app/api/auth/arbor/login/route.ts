@@ -61,27 +61,12 @@ export async function POST(req: NextRequest) {
 
         const dayNum = b.dayOfWeek || 1;
         const dayObj = DAYS_OF_WEEK.find(d => d.id === dayNum) || DAYS_OF_WEEK[0];
+        const week = (b as any).weekType || 'A';
 
-        // Add for Week A
         studyRoomsToSync.push({
-          id: `sync-A-${dayNum}-${period.id}-${clean}`,
+          id: `sync-${week}-${dayNum}-${period.id}-${clean}`,
           roomCode: clean,
-          weekType: 'A',
-          dayOfWeek: dayNum,
-          dayName: dayObj.name,
-          periodId: period.id,
-          periodNumber: period.number ?? 1,
-          lessonSubject: b.subject || '6th form study',
-          supervisor: b.teacher || 'Study Supervisor',
-          contributedBy: 'Anonymous Submission',
-          isManual: false,
-        });
-
-        // Add for Week B
-        studyRoomsToSync.push({
-          id: `sync-B-${dayNum}-${period.id}-${clean}`,
-          roomCode: clean,
-          weekType: 'B',
+          weekType: week,
           dayOfWeek: dayNum,
           dayName: dayObj.name,
           periodId: period.id,
