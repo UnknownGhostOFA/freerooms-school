@@ -35,9 +35,9 @@ export function PeriodDetailModal() {
     r => r.dayOfWeek === day && r.periodId === period.id
   );
 
-  // All classes in this period
+  // All teaching classes in this period (excluding study classes)
   const periodClasses = allLessons.filter(
-    l => l.dayOfWeek === day && l.periodId === period.id
+    l => l.dayOfWeek === day && l.periodId === period.id && !l.isStudy
   );
 
   return (

@@ -146,11 +146,28 @@ async function seedBaselineFromLocalJson() {
 // ==========================================
 function cleanRoomCode(raw) {
   if (!raw) return '';
-  let clean = String(raw).trim();
-  clean = clean.replace(/^.*?:\s*/i, '');
+  const str = String(raw).trim();
+  if (/common\s*room/i.test(str)) return '';
+
+  let clean = str.replace(/^.*?:\s*/i, '');
   clean = clean.replace(/^room[\s\-_]*/i, '');
   clean = clean.replace(/[^a-zA-Z0-9]/g, '');
-  return clean.toUpperCase();
+  clean = clean.toUpperCase();
+
+  // Filter out non-room strings and Common Room
+  const invalidCodes = [
+    '6THFORMCOMMONROOM',
+    'COMMONROOM',
+    '6THFORM',
+    'SIXTHFORM',
+    'SIXTHFORMCOMMONROOM',
+    'STUDY',
+    'FREE',
+    'COMMON'
+  ];
+  if (invalidCodes.includes(clean)) return '';
+
+  return clean;
 }
 
 function matchTimeToPeriod(timeStr) {
