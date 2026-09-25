@@ -21,7 +21,6 @@ export interface FreeStudyRoom {
   isManual?: boolean;
   notes?: string;
   createdAt?: string | Date;
-  createdByEmail?: string;
   canDelete?: boolean;
   isLocked?: boolean;
 }

@@ -276,7 +276,6 @@ function toPublicRoom(doc, requestingUserEmail) {
     isManual: !!doc.isManual,
     notes: doc.notes,
     createdAt: doc.createdAt,
-    createdByEmail: isOwner || isAdmin ? doc.createdByEmail : undefined,
     canDelete,
     isLocked,
     updatedAt: doc.updatedAt

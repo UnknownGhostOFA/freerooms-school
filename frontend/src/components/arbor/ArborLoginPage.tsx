@@ -80,7 +80,7 @@ export function ArborLoginPage() {
               spellCheck={false}
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="e.g. wsc-20dhpa@wrennschool.org.uk or parent email"
+              placeholder="e.g. student@wrennschool.org.uk or parent email"
               className="w-full rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-white dark:bg-[#151b17] px-4 py-3 text-sm text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:outline-none placeholder:text-[#78827e] dark:placeholder:text-[#607066]"
             />
           </div>
