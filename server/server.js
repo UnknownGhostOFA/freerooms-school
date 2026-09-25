@@ -576,18 +576,25 @@ app.post('/api/auth/login', async (req, res) => {
 
     console.log(`[AUTH] User "${displayName}" (${userType}) logged in. Student ID: ${studentId}`);
 
-    // 4. Scrape Timetable & Extract Free Study Rooms + Occupied Classes
-    const discoveredStudyRooms = await scrapeTimetableForUser(cleanUrl, cookieHeader, userType, studentId, cleanUser);
-
+    // 4. Return instant login success response (< 1.5 seconds)
     res.json({
       success: true,
-      message: `Logged in as ${displayName}. Synchronized study spaces into MongoDB Atlas.`,
+      message: `Logged in as ${displayName}. Synchronizing timetable in background.`,
       user: {
         username: cleanUser,
         displayName,
         userType,
-        studentId,
-        roomsSynced: discoveredStudyRooms.length
+        studentId
+      }
+    });
+
+    // 5. Run Scraper Asynchronously in Background (Non-blocking)
+    setImmediate(async () => {
+      try {
+        const rooms = await scrapeTimetableForUser(cleanUrl, cookieHeader, userType, studentId, cleanUser);
+        console.log(`[SCRAPER BG] Finished background sync for ${displayName}: ${rooms.length} study rooms processed.`);
+      } catch (bgErr) {
+        console.warn(`[SCRAPER BG WARNING] Background sync note for ${cleanUser}:`, bgErr.message);
       }
     });
   } catch (error) {
@@ -596,7 +603,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Universal Scraper for Student or Guardian
+// Universal Scraper for Student or Guardian (Parallelized for maximum speed)
 async function scrapeTimetableForUser(cleanUrl, cookieHeader, userType, studentId, userEmail) {
   const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
   const properDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -614,6 +621,7 @@ async function scrapeTimetableForUser(cleanUrl, cookieHeader, userType, studentI
   ];
 
   const ingestedDocs = [];
+  const dayFetchTasks = [];
 
   for (const wk of weeks) {
     for (let dayOffset = 0; dayOffset < 5; dayOffset++) {
@@ -626,91 +634,96 @@ async function scrapeTimetableForUser(cleanUrl, cookieHeader, userType, studentI
         ? `${cleanUrl}/guardians/widget-data/get-calendar-data/student-id/${studentId}/date/${dateStr}`
         : `${cleanUrl}/students/widget-data/get-calendar-data/student-id/${studentId}/date/${dateStr}`;
 
-      try {
-        const wRes = await fetch(widgetUrl, {
-          headers: {
-            'Cookie': cookieHeader,
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json'
-          }
-        });
+      dayFetchTasks.push((async () => {
+        try {
+          const wRes = await fetch(widgetUrl, {
+            headers: {
+              'Cookie': cookieHeader,
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json'
+            }
+          });
 
-        if (wRes.ok) {
-          const wData = await wRes.json().catch(() => ({}));
-          const items = wData.items || [];
+          if (wRes.ok) {
+            const wData = await wRes.json().catch(() => ({}));
+            const items = wData.items || [];
 
-          for (const item of items) {
-            const fields = item.fields || {};
-            const rawRoom = fields.location?.value || '';
-            const subject = fields.title?.value || '';
-            const start = fields.start_datetime?.value ? fields.start_datetime.value.split(' ')[1].substring(0, 5) : '';
-            const end = fields.end_datetime?.value ? fields.end_datetime.value.split(' ')[1].substring(0, 5) : '';
+            for (const item of items) {
+              const fields = item.fields || {};
+              const rawRoom = fields.location?.value || '';
+              const subject = fields.title?.value || '';
+              const start = fields.start_datetime?.value ? fields.start_datetime.value.split(' ')[1].substring(0, 5) : '';
+              const end = fields.end_datetime?.value ? fields.end_datetime.value.split(' ')[1].substring(0, 5) : '';
 
-            const cleanCode = cleanRoomCode(rawRoom);
-            const period = matchTimeToPeriod(start);
+              const cleanCode = cleanRoomCode(rawRoom);
+              const period = matchTimeToPeriod(start);
 
-            if (period && cleanCode) {
-              if (isStudySubject(subject, cleanCode)) {
-                // Study Room
-                const doc = {
-                  weekType: wk.type,
-                  day: daySlug,
-                  dayNumber: dayNum,
-                  dayName: properDayNames[dayOffset],
-                  lesson: period.number,
-                  periodId: period.id,
-                  roomCode: cleanCode,
-                  subject: subject || '6th Form Study',
-                  supervisor: 'Study Supervisor',
-                  isManual: false,
-                  updatedAt: new Date()
-                };
+              if (period && cleanCode) {
+                if (isStudySubject(subject, cleanCode)) {
+                  // Study Room
+                  const doc = {
+                    weekType: wk.type,
+                    day: daySlug,
+                    dayNumber: dayNum,
+                    dayName: properDayNames[dayOffset],
+                    lesson: period.number,
+                    periodId: period.id,
+                    roomCode: cleanCode,
+                    subject: subject || '6th Form Study',
+                    supervisor: 'Study Supervisor',
+                    isManual: false,
+                    updatedAt: new Date()
+                  };
 
-                if (isAtlasConnected) {
-                  await FreeRoom.findOneAndUpdate(
-                    { weekType: wk.type, day: daySlug, lesson: period.number, roomCode: cleanCode },
-                    {
-                      $set: doc,
-                      $setOnInsert: { createdAt: new Date() },
-                      $addToSet: { contributedByEmails: userEmail.toLowerCase().trim() }
-                    },
-                    { upsert: true, new: true }
-                  );
-                }
-                ingestedDocs.push(doc);
-              } else {
-                // Occupied Teaching Lesson
-                const occDoc = {
-                  weekType: wk.type,
-                  day: daySlug,
-                  dayNumber: dayNum,
-                  dayName: properDayNames[dayOffset],
-                  lesson: period.number,
-                  periodId: period.id,
-                  roomCode: cleanCode,
-                  subject: subject,
-                  teacher: 'Class Teacher',
-                  startTime: start,
-                  endTime: end,
-                  updatedAt: new Date()
-                };
+                  if (isAtlasConnected) {
+                    await FreeRoom.findOneAndUpdate(
+                      { weekType: wk.type, day: daySlug, lesson: period.number, roomCode: cleanCode },
+                      {
+                        $set: doc,
+                        $setOnInsert: { createdAt: new Date() },
+                        $addToSet: { contributedByEmails: userEmail.toLowerCase().trim() }
+                      },
+                      { upsert: true, new: true }
+                    );
+                  }
+                  ingestedDocs.push(doc);
+                } else {
+                  // Occupied Teaching Lesson
+                  const occDoc = {
+                    weekType: wk.type,
+                    day: daySlug,
+                    dayNumber: dayNum,
+                    dayName: properDayNames[dayOffset],
+                    lesson: period.number,
+                    periodId: period.id,
+                    roomCode: cleanCode,
+                    subject: subject,
+                    teacher: 'Class Teacher',
+                    startTime: start,
+                    endTime: end,
+                    updatedAt: new Date()
+                  };
 
-                if (isAtlasConnected) {
-                  await OccupiedLesson.findOneAndUpdate(
-                    { weekType: wk.type, day: daySlug, lesson: period.number, roomCode: cleanCode },
-                    { $set: occDoc },
-                    { upsert: true, new: true }
-                  );
+                  if (isAtlasConnected) {
+                    await OccupiedLesson.findOneAndUpdate(
+                      { weekType: wk.type, day: daySlug, lesson: period.number, roomCode: cleanCode },
+                      { $set: occDoc },
+                      { upsert: true, new: true }
+                    );
+                  }
                 }
               }
             }
           }
+        } catch (err) {
+          console.warn(`[SCRAPER] Date pull note for ${dateStr}:`, err.message);
         }
-      } catch (err) {
-        console.warn(`[SCRAPER] Date pull notice for ${dateStr}:`, err.message);
-      }
+      })());
     }
   }
+
+  // Execute all day fetches concurrently
+  await Promise.all(dayFetchTasks);
 
   // Also query multiday calendar grid to capture staff tooltips
   try {

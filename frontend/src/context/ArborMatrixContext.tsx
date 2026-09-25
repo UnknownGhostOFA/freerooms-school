@@ -281,8 +281,17 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
         });
       } catch {}
 
-      // Refresh matrix with any newly ingested student study rooms
+      // Immediate local state update and refresh
       await fetchRemoteRooms();
+
+      // Background follow-up refreshes to catch async scraped timetable rooms from backend
+      setTimeout(() => {
+        fetchRemoteRooms();
+      }, 2500);
+
+      setTimeout(() => {
+        fetchRemoteRooms();
+      }, 6000);
 
       return { success: true };
     } catch (e: any) {
@@ -294,7 +303,24 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
   };
 
   const logoutStudent = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.SESSION);
+      localStorage.removeItem(STORAGE_KEYS.MANUAL_ROOMS_A);
+      localStorage.removeItem(STORAGE_KEYS.MANUAL_ROOMS_B);
+      // Clean up any other storage keys
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('arbor_student') || key.includes('session'))) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch {}
+
     setStudentSession(null);
+    setManualRoomsA([]);
+    setManualRoomsB([]);
+    setAllLessonsA([]);
+    setAllLessonsB([]);
   };
 
   // Add Free Room with Instant UI update, MongoDB Atlas sync & Collision check
