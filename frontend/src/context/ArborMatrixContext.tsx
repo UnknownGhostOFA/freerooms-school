@@ -15,7 +15,7 @@ import {
 import confetti from 'canvas-confetti';
 
 // Versioning stamp: forces fresh login on each new deployment
-const APP_DEPLOY_BUILD = 'freerooms_deploy_v10_prod';
+const APP_DEPLOY_BUILD = 'freerooms_deploy_v11_clean_reset';
 
 export interface ArborStudentSession {
   name: string;
@@ -63,11 +63,11 @@ interface ArborMatrixContextType {
 const ArborMatrixContext = createContext<ArborMatrixContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  BUILD_VERSION: 'arbor_deploy_build_v10',
-  SESSION: 'arbor_student_session_v10',
-  MANUAL_ROOMS_A: 'arbor_manual_rooms_a_v10',
-  MANUAL_ROOMS_B: 'arbor_manual_rooms_b_v10',
-  SELECTED_WEEK: 'arbor_selected_week_v10',
+  BUILD_VERSION: 'arbor_deploy_build_v11',
+  SESSION: 'arbor_student_session_v11',
+  MANUAL_ROOMS_A: 'arbor_manual_rooms_a_v11',
+  MANUAL_ROOMS_B: 'arbor_manual_rooms_b_v11',
+  SELECTED_WEEK: 'arbor_selected_week_v11',
 };
 
 export function ArborMatrixProvider({ children }: { children: ReactNode }) {

@@ -64,7 +64,6 @@ if (MONGODB_URI) {
   .then(async () => {
     isAtlasConnected = true;
     console.log('[PASS] MongoDB Atlas Connected Successfully.');
-    await seedBaselineFromLocalJson();
   })
   .catch((err) => {
     console.error('[ERROR] MongoDB Atlas Connection Error:', err.message);

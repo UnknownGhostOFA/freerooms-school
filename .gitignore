@@ -24,3 +24,7 @@ scraper.log
 # Temporary test scripts
 test-*.js
 page1.html
+
+# Markdown files
+*.md
+**/*.md
