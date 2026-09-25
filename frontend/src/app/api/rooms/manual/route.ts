@@ -9,10 +9,12 @@ const BACKEND_URL =
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const week = searchParams.get('week') || 'A';
+    const week = searchParams.get('week') || searchParams.get('weekType') || 'A';
+    const userEmail = searchParams.get('userEmail') || '';
 
     try {
-      const serverRes = await fetch(`${BACKEND_URL}/api/matrix?week=${week}`, {
+      const emailQuery = userEmail ? `&userEmail=${encodeURIComponent(userEmail)}` : '';
+      const serverRes = await fetch(`${BACKEND_URL}/api/matrix?week=${week}${emailQuery}`, {
         cache: 'no-store',
       });
       if (serverRes.ok) {
@@ -68,13 +70,27 @@ export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const userEmail = searchParams.get('userEmail') || '';
 
     if (id) {
       try {
-        await fetch(`${BACKEND_URL}/api/rooms/manual/${id}`, {
+        const emailQuery = userEmail ? `?userEmail=${encodeURIComponent(userEmail)}` : '';
+        const serverRes = await fetch(`${BACKEND_URL}/api/rooms/manual/${encodeURIComponent(id)}${emailQuery}`, {
           method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-email': userEmail,
+          },
         });
-      } catch {}
+
+        const data = await serverRes.json().catch(() => ({}));
+        if (!serverRes.ok) {
+          return NextResponse.json(data, { status: serverRes.status });
+        }
+        return NextResponse.json(data);
+      } catch (err: any) {
+        console.warn('Server delete call failed:', err.message);
+      }
     }
 
     return NextResponse.json({ success: true });

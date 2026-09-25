@@ -286,18 +286,18 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
     setStudentSession(null);
   };
 
-  // Add Free Room with Instant UI update & MongoDB Atlas sync
+  // Add Free Room with Instant UI update & MongoDB Atlas sync (Supports comma-separated: 6C, 6D)
   const addManualFreeRoom = (roomCode: string, dayOfWeek: number, periodId: string, notes?: string, targetWeek?: 'A' | 'B') => {
-    const cleanCode = cleanRoomCode(roomCode);
-    if (!cleanCode) return { success: false, error: 'Room code is required.' };
+    // Split on commas, semicolons, or slashes (e.g. "6C, 6D" -> ["6C", "6D"])
+    const rawCodes = String(roomCode).split(/[,;/]+/).map(s => cleanRoomCode(s)).filter(Boolean);
+    if (rawCodes.length === 0) return { success: false, error: 'Valid room code is required.' };
 
     const effectiveWeek = targetWeek || selectedWeek;
     const period = WRENN_PERIODS.find(p => p.id === periodId) || WRENN_PERIODS[0];
     const dayObj = DAYS_OF_WEEK.find(d => d.id === dayOfWeek) || DAYS_OF_WEEK[0];
-    const roomId = `room-${effectiveWeek}-${dayOfWeek}-${period.id}-${cleanCode}`;
 
-    const newFreeRoom: FreeStudyRoom = {
-      id: roomId,
+    const newRooms: FreeStudyRoom[] = rawCodes.map(cleanCode => ({
+      id: `room-${effectiveWeek}-${dayOfWeek}-${period.id}-${cleanCode}`,
       roomCode: cleanCode,
       dayOfWeek,
       dayName: dayObj.name,
@@ -307,52 +307,68 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
       contributedBy: studentSession?.name || 'Student Submission',
       isManual: true,
       notes,
-    };
+      createdAt: new Date().toISOString(),
+      canDelete: true,
+      isLocked: false,
+    }));
+
+    const newIds = new Set(newRooms.map(r => r.id));
 
     // Instant local state update
     if (effectiveWeek === 'A') {
-      setManualRoomsA(prev => [newFreeRoom, ...prev.filter(r => r.id !== roomId)]);
+      setManualRoomsA(prev => [...newRooms, ...prev.filter(r => !newIds.has(r.id))]);
     } else {
-      setManualRoomsB(prev => [newFreeRoom, ...prev.filter(r => r.id !== roomId)]);
+      setManualRoomsB(prev => [...newRooms, ...prev.filter(r => !newIds.has(r.id))]);
     }
     setIsAddFreeRoomModalOpen(false);
 
-    // Persist to MongoDB Atlas and refresh
-    fetch('/api/rooms/manual', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        roomCode: cleanCode,
-        weekType: effectiveWeek,
-        dayOfWeek,
-        periodId: period.id,
-        notes,
-        userEmail: studentSession?.email || 'user@freerooms',
-      }),
-    })
-    .then(() => fetchRemoteRooms())
-    .catch(err => {
-      console.warn('Backend sync notice:', err);
-    });
+    // Persist to MongoDB Atlas for each room and refresh
+    Promise.all(
+      rawCodes.map(cleanCode =>
+        fetch('/api/rooms/manual', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roomCode: cleanCode,
+            weekType: effectiveWeek,
+            dayOfWeek,
+            periodId: period.id,
+            notes,
+            userEmail: studentSession?.email || 'user@freerooms',
+          }),
+        }).catch(err => {
+          console.warn('Backend sync notice:', err);
+        })
+      )
+    ).then(() => fetchRemoteRooms());
 
     return { success: true };
   };
 
-  const deleteFreeRoom = (id: string) => {
+  const deleteFreeRoom = async (id: string) => {
+    // 1. Optimistically remove from state
     if (selectedWeek === 'A') {
       setManualRoomsA(prev => prev.filter(r => r.id !== id));
     } else {
       setManualRoomsB(prev => prev.filter(r => r.id !== id));
     }
 
+    // 2. Perform backend delete with user email
     const emailParam = studentSession?.email ? `&userEmail=${encodeURIComponent(studentSession.email)}` : '';
-    fetch(`/api/rooms/manual?id=${encodeURIComponent(id)}${emailParam}`, {
-      method: 'DELETE',
-    })
-    .then(() => fetchRemoteRooms())
-    .catch(err => {
+    try {
+      const res = await fetch(`/api/rooms/manual?id=${encodeURIComponent(id)}${emailParam}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        console.warn('Delete rejected by backend:', data.error);
+      }
+    } catch (err) {
       console.warn('Failed deleting room from server:', err);
-    });
+    } finally {
+      // 3. Resync authoritative list from MongoDB Atlas
+      await fetchRemoteRooms();
+    }
   };
 
   return (

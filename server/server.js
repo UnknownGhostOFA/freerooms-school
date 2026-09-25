@@ -749,7 +749,7 @@ app.all(['/api/admin/db', '/api/admin/debug'], async (req, res) => {
   }
 });
 
-// POST Manual Room Addition: /api/rooms/manual
+// POST Manual Room Addition: /api/rooms/manual (Supports comma-separated: 6C, 6D)
 app.post('/api/rooms/manual', async (req, res) => {
   try {
     const { roomCode, weekType, week: altWeek, dayOfWeek = 1, periodId = 'p1', notes, userEmail } = req.body;
@@ -757,8 +757,9 @@ app.post('/api/rooms/manual', async (req, res) => {
       return res.status(400).json({ error: 'Room code is required' });
     }
 
-    const clean = cleanRoomCode(roomCode);
-    if (!clean) {
+    // Split on commas, slashes, or semicolons (e.g. "6C, 6D" -> ["6C", "6D"])
+    const rawCodes = String(roomCode).split(/[,;/]+/).map(s => cleanRoomCode(s)).filter(Boolean);
+    if (rawCodes.length === 0) {
       return res.status(400).json({ error: 'Valid alphanumeric room code is required' });
     }
 
@@ -771,38 +772,43 @@ app.post('/api/rooms/manual', async (req, res) => {
     const week = String(rawWeek).toUpperCase() === 'B' ? 'B' : 'A';
     const submitterEmail = String(userEmail || 'student@wrennschool.org.uk').toLowerCase().trim();
 
-    const doc = {
-      weekType: week,
-      day: daySlug,
-      dayNumber: dNum,
-      dayName: properDayNames[dNum - 1],
-      lesson,
-      periodId: `p${lesson}`,
-      roomCode: clean,
-      subject: 'Free Study Room (Student Submission)',
-      supervisor: 'Study Supervisor',
-      createdByEmail: submitterEmail,
-      isManual: true,
-      notes: notes || undefined,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    const savedRooms = [];
+    for (const clean of rawCodes) {
+      const doc = {
+        weekType: week,
+        day: daySlug,
+        dayNumber: dNum,
+        dayName: properDayNames[dNum - 1],
+        lesson,
+        periodId: `p${lesson}`,
+        roomCode: clean,
+        subject: 'Free Study Room (Student Submission)',
+        supervisor: 'Study Supervisor',
+        createdByEmail: submitterEmail,
+        isManual: true,
+        notes: notes || undefined,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
 
-    if (isAtlasConnected) {
-      await FreeRoom.findOneAndUpdate(
-        { weekType: week, day: daySlug, lesson, roomCode: clean },
-        {
-          $set: doc,
-          $addToSet: { contributedByEmails: submitterEmail }
-        },
-        { upsert: true, new: true }
-      );
+      if (isAtlasConnected) {
+        await FreeRoom.findOneAndUpdate(
+          { weekType: week, day: daySlug, lesson, roomCode: clean },
+          {
+            $set: doc,
+            $addToSet: { contributedByEmails: submitterEmail }
+          },
+          { upsert: true, new: true }
+        );
+      }
+      savedRooms.push(toPublicRoom(doc, submitterEmail));
     }
 
     res.json({
       success: true,
-      message: `Room ${clean} added to MongoDB Atlas for Week ${week} ${properDayNames[dNum - 1]} Period ${lesson}`,
-      room: toPublicRoom(doc, submitterEmail)
+      message: `Added ${savedRooms.length} room(s) to MongoDB Atlas for Week ${week} ${properDayNames[dNum - 1]} Period ${lesson}`,
+      rooms: savedRooms,
+      room: savedRooms[0]
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -820,6 +826,7 @@ app.delete(['/api/rooms/manual/:id', '/api/rooms/:id', '/api/rooms/manual'], asy
     }
 
     const isAdmin = reqEmail === 'localhost@localhost';
+    const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 
     // Locate the document first to check permissions and time limit
     let query = {};
@@ -828,19 +835,33 @@ app.delete(['/api/rooms/manual/:id', '/api/rooms/:id', '/api/rooms/manual'], asy
       if (parts.length >= 5 && parts[0] === 'room') {
         const weekType = parts[1].toUpperCase();
         const dayNum = Number(parts[2]);
+        const daySlug = dayNames[dayNum - 1] || 'monday';
         const lesson = parseInt(parts[3].replace(/[^0-9]/g, ''), 10);
         const roomCode = cleanRoomCode(parts.slice(4).join('-'));
-        query = { weekType, dayNumber: dayNum, lesson, roomCode };
+        query = {
+          weekType,
+          $or: [{ dayNumber: dayNum }, { day: daySlug }],
+          lesson,
+          roomCode
+        };
       } else {
-        query = { $or: [{ id: roomId }, { roomCode: cleanRoomCode(roomId) }] };
+        const clean = cleanRoomCode(roomId);
+        query = { $or: [{ id: roomId }, { roomCode: clean }] };
       }
     } else {
       const { weekType, dayOfWeek, periodId, roomCode } = req.query;
       const clean = cleanRoomCode(roomCode);
-      if (clean) query.roomCode = clean;
-      if (weekType) query.weekType = String(weekType).toUpperCase();
-      if (dayOfWeek) query.dayNumber = Number(dayOfWeek);
-      if (periodId) query.lesson = parseInt(String(periodId).replace(/[^0-9]/g, ''), 10);
+      const dayNum = Number(dayOfWeek) || 1;
+      const daySlug = dayNames[dayNum - 1] || 'monday';
+      const lesson = periodId ? parseInt(String(periodId).replace(/[^0-9]/g, ''), 10) || 1 : 1;
+      const week = String(weekType || 'A').toUpperCase();
+
+      query = {
+        weekType: week,
+        $or: [{ dayNumber: dayNum }, { day: daySlug }],
+        lesson,
+        roomCode: clean
+      };
     }
 
     const targetRoom = await FreeRoom.findOne(query);
