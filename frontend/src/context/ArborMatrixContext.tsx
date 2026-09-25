@@ -46,7 +46,7 @@ interface ArborMatrixContextType {
   logoutStudent: () => void;
 
   // Manual Free Room submission (Instant UI update + Anonymous MongoDB Atlas sync)
-  addManualFreeRoom: (roomCode: string, dayOfWeek: number, periodId: string, notes?: string, targetWeek?: 'A' | 'B') => { success: boolean; error?: string };
+  addManualFreeRoom: (roomCode: string, dayOfWeek: number, periodId: string, notes?: string, targetWeek?: 'A' | 'B') => Promise<{ success: boolean; error?: string }>;
   deleteFreeRoom: (id: string) => void;
 
   // Background Sync
@@ -86,6 +86,8 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
   const [selectedWeek, setSelectedWeek] = useState<'A' | 'B'>(() => liveCurrentWeek);
   const [manualRoomsA, setManualRoomsA] = useState<FreeStudyRoom[]>([]);
   const [manualRoomsB, setManualRoomsB] = useState<FreeStudyRoom[]>([]);
+  const [allLessonsA, setAllLessonsA] = useState<ClassLesson[]>([]);
+  const [allLessonsB, setAllLessonsB] = useState<ClassLesson[]>([]);
   const [studentSession, setStudentSession] = useState<ArborStudentSession | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
@@ -106,12 +108,18 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
         if (dataA.studyRooms && Array.isArray(dataA.studyRooms)) {
           setManualRoomsA(dataA.studyRooms);
         }
+        if (dataA.occupiedLessons && Array.isArray(dataA.occupiedLessons)) {
+          setAllLessonsA(dataA.occupiedLessons);
+        }
       }
 
       if (resB && resB.ok) {
         const dataB = await resB.json();
         if (dataB.studyRooms && Array.isArray(dataB.studyRooms)) {
           setManualRoomsB(dataB.studyRooms);
+        }
+        if (dataB.occupiedLessons && Array.isArray(dataB.occupiedLessons)) {
+          setAllLessonsB(dataB.occupiedLessons);
         }
       }
 
@@ -204,10 +212,10 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [studentSession, isHydrated]);
 
-  // All lessons for currently selected week
+  // All timetabled teaching classes for currently selected week (Live from MongoDB Atlas)
   const allLessons = selectedWeek === 'A'
-    ? PARSED_WEEK_A.lessons
-    : PARSED_WEEK_B.lessons;
+    ? (allLessonsA.length > 0 ? allLessonsA : PARSED_WEEK_A.lessons)
+    : (allLessonsB.length > 0 ? allLessonsB : PARSED_WEEK_B.lessons);
 
   // Combine study rooms purely from MongoDB Atlas (Live DB records)
   const rawStudyRooms = selectedWeek === 'A'
@@ -286,46 +294,49 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
     setStudentSession(null);
   };
 
-  // Add Free Room with Instant UI update & MongoDB Atlas sync (Supports comma-separated: 6C, 6D)
-  const addManualFreeRoom = (roomCode: string, dayOfWeek: number, periodId: string, notes?: string, targetWeek?: 'A' | 'B') => {
+  // Add Free Room with Instant UI update, MongoDB Atlas sync & Collision check
+  const addManualFreeRoom = async (
+    roomCode: string,
+    dayOfWeek: number,
+    periodId: string,
+    notes?: string,
+    targetWeek?: 'A' | 'B'
+  ): Promise<{ success: boolean; error?: string }> => {
     // Split on commas, semicolons, or slashes (e.g. "6C, 6D" -> ["6C", "6D"])
     const rawCodes = String(roomCode).split(/[,;/]+/).map(s => cleanRoomCode(s)).filter(Boolean);
     if (rawCodes.length === 0) return { success: false, error: 'Valid room code is required.' };
 
     const effectiveWeek = targetWeek || selectedWeek;
+    const targetLessons = effectiveWeek === 'A'
+      ? (allLessonsA.length > 0 ? allLessonsA : PARSED_WEEK_A.lessons)
+      : (allLessonsB.length > 0 ? allLessonsB : PARSED_WEEK_B.lessons);
+    const isAdmin = studentSession?.email?.toLowerCase().trim() === 'localhost@localhost';
+
+    // 1. Client-Side Collision Check (Instant UI warning if occupied by class)
+    if (!isAdmin) {
+      for (const code of rawCodes) {
+        const collision = targetLessons.find(
+          l => l.dayOfWeek === dayOfWeek &&
+               l.periodId === periodId &&
+               cleanRoomCode(l.roomCode) === code &&
+               !l.isStudy
+        );
+        if (collision) {
+          return {
+            success: false,
+            error: `Room ${code} is unavailable: occupied by ${collision.subject}${collision.teacher ? ` with ${collision.teacher}` : ''} in this period.`
+          };
+        }
+      }
+    }
+
     const period = WRENN_PERIODS.find(p => p.id === periodId) || WRENN_PERIODS[0];
     const dayObj = DAYS_OF_WEEK.find(d => d.id === dayOfWeek) || DAYS_OF_WEEK[0];
 
-    const newRooms: FreeStudyRoom[] = rawCodes.map(cleanCode => ({
-      id: `room-${effectiveWeek}-${dayOfWeek}-${period.id}-${cleanCode}`,
-      roomCode: cleanCode,
-      dayOfWeek,
-      dayName: dayObj.name,
-      periodId: period.id,
-      periodNumber: period.number ?? 1,
-      lessonSubject: 'Free Study Room',
-      contributedBy: studentSession?.name || 'Student Submission',
-      isManual: true,
-      notes,
-      createdAt: new Date().toISOString(),
-      canDelete: true,
-      isLocked: false,
-    }));
-
-    const newIds = new Set(newRooms.map(r => r.id));
-
-    // Instant local state update
-    if (effectiveWeek === 'A') {
-      setManualRoomsA(prev => [...newRooms, ...prev.filter(r => !newIds.has(r.id))]);
-    } else {
-      setManualRoomsB(prev => [...newRooms, ...prev.filter(r => !newIds.has(r.id))]);
-    }
-    setIsAddFreeRoomModalOpen(false);
-
-    // Persist to MongoDB Atlas for each room and refresh
-    Promise.all(
-      rawCodes.map(cleanCode =>
-        fetch('/api/rooms/manual', {
+    // 2. Persist each room to Backend / MongoDB Atlas
+    try {
+      for (const cleanCode of rawCodes) {
+        const res = await fetch('/api/rooms/manual', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -336,13 +347,23 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
             notes,
             userEmail: studentSession?.email || 'user@freerooms',
           }),
-        }).catch(err => {
-          console.warn('Backend sync notice:', err);
-        })
-      )
-    ).then(() => fetchRemoteRooms());
+        });
 
-    return { success: true };
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          return {
+            success: false,
+            error: data.error || `Room ${cleanCode} is unavailable in this period.`
+          };
+        }
+      }
+
+      setIsAddFreeRoomModalOpen(false);
+      await fetchRemoteRooms();
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Error saving room to server.' };
+    }
   };
 
   const deleteFreeRoom = async (id: string) => {

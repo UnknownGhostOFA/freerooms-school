@@ -23,7 +23,7 @@ app.use(cors());
 app.use(express.json());
 
 // ==========================================
-// 1. Mongoose Schema: Hierarchical Study Rooms
+// 1. Mongoose Schema: Free Study Rooms
 // ==========================================
 const FreeRoomSchema = new mongoose.Schema({
   weekType: { type: String, enum: ['A', 'B'], required: true, index: true },
@@ -48,15 +48,41 @@ const FreeRoomSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
-// Ensure unique compound index for Week + Day + Lesson + RoomCode
 FreeRoomSchema.index({ weekType: 1, day: 1, lesson: 1, roomCode: 1 }, { unique: true });
 
 const FreeRoom = mongoose.models.FreeRoom || mongoose.model('FreeRoom', FreeRoomSchema);
 
+// ==========================================
+// 2. Mongoose Schema: Occupied Timetabled Lessons (Collision Registry)
+// ==========================================
+const OccupiedLessonSchema = new mongoose.Schema({
+  weekType: { type: String, enum: ['A', 'B'], required: true, index: true },
+  day: {
+    type: String,
+    enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+    required: true,
+    index: true
+  },
+  dayNumber: { type: Number, required: true, min: 1, max: 5 }, // 1=Mon .. 5=Fri
+  dayName: { type: String, required: true },
+  lesson: { type: Number, required: true, min: 1, max: 5, index: true }, // 1 to 5
+  periodId: { type: String, required: true }, // 'p1' to 'p5'
+  roomCode: { type: String, required: true, uppercase: true, trim: true },
+  subject: { type: String, required: true }, // e.g. "Mathematics: Year 13: 13A/Ma"
+  teacher: { type: String, default: 'Class Teacher' },
+  startTime: { type: String },
+  endTime: { type: String },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+OccupiedLessonSchema.index({ weekType: 1, day: 1, lesson: 1, roomCode: 1 }, { unique: true });
+
+const OccupiedLesson = mongoose.models.OccupiedLesson || mongoose.model('OccupiedLesson', OccupiedLessonSchema);
+
 let isAtlasConnected = false;
 
 // ==========================================
-// 2. Connect to MongoDB Atlas & Seed Baseline
+// 3. Connect to MongoDB Atlas & Seed Baseline
 // ==========================================
 if (MONGODB_URI) {
   mongoose.connect(MONGODB_URI, {
@@ -65,6 +91,7 @@ if (MONGODB_URI) {
   .then(async () => {
     isAtlasConnected = true;
     console.log('[PASS] MongoDB Atlas Connected Successfully.');
+    await seedBaselineFromLocalJson();
   })
   .catch((err) => {
     console.error('[ERROR] MongoDB Atlas Connection Error:', err.message);
@@ -83,7 +110,7 @@ if (MONGODB_URI) {
   console.warn('[WARN] MONGODB_URI environment variable is not defined!');
 }
 
-// Seed baseline weeks from arbor-live-weeks.json into MongoDB Atlas without deleting existing
+// Seed baseline weeks from arbor-live-weeks.json into MongoDB Atlas
 async function seedBaselineFromLocalJson() {
   try {
     let filePath = path.join(__dirname, 'arbor-live-weeks.json');
@@ -101,12 +128,14 @@ async function seedBaselineFromLocalJson() {
       for (const ev of (events || [])) {
         if (ev.start === '08:40') dayIdx++;
         const p = matchTimeToPeriod(ev.start);
-        if (ev.isStudy && p !== null) {
-          const dNum = Math.max(1, Math.min(5, dayIdx + 1));
-          const daySlug = dayNames[dNum - 1];
-          const cleanCode = cleanRoomCode(ev.room);
-          if (!cleanCode) continue;
+        const cleanCode = cleanRoomCode(ev.room);
+        if (!cleanCode || p === null) continue;
 
+        const dNum = Math.max(1, Math.min(5, dayIdx + 1));
+        const daySlug = dayNames[dNum - 1];
+
+        if (ev.isStudy) {
+          // Free Study Space
           await FreeRoom.findOneAndUpdate(
             { weekType, day: daySlug, lesson: p.number, roomCode: cleanCode },
             {
@@ -130,20 +159,42 @@ async function seedBaselineFromLocalJson() {
             },
             { upsert: true, new: true }
           );
+        } else {
+          // Occupied Timetabled Teaching Class
+          await OccupiedLesson.findOneAndUpdate(
+            { weekType, day: daySlug, lesson: p.number, roomCode: cleanCode },
+            {
+              $set: {
+                weekType,
+                day: daySlug,
+                dayNumber: dNum,
+                dayName: properDayNames[dNum - 1],
+                lesson: p.number,
+                periodId: p.id,
+                roomCode: cleanCode,
+                subject: ev.subject,
+                teacher: ev.teacher || 'Class Teacher',
+                startTime: ev.start,
+                endTime: ev.end,
+                updatedAt: new Date()
+              }
+            },
+            { upsert: true, new: true }
+          );
         }
       }
     };
 
     await processEvents(raw.weekA, 'A');
     await processEvents(raw.weekB, 'B');
-    console.log('[SEED] Baseline study rooms checked & populated into MongoDB Atlas.');
+    console.log('[SEED] Baseline free rooms & occupied lesson registry populated.');
   } catch (err) {
     console.warn('[SEED] Baseline seeding notice:', err.message);
   }
 }
 
 // ==========================================
-// 3. Helper Functions
+// 4. Helper Functions
 // ==========================================
 function cleanRoomCode(raw) {
   if (!raw) return '';
@@ -283,7 +334,7 @@ function toPublicRoom(doc, requestingUserEmail) {
 }
 
 // ==========================================
-// 4. API Endpoints
+// 5. API Endpoints
 // ==========================================
 
 // GET /api/health
@@ -313,9 +364,23 @@ async function handleSinglePeriodRequest(weekType, dayParam, lessonParam, reques
     const lesson = normalizeLesson(lessonParam);
 
     let rooms = [];
+    let occupied = [];
     if (isAtlasConnected) {
       const records = await FreeRoom.find({ weekType, day, lesson }).lean();
       rooms = records.map(r => toPublicRoom(r, requestingUserEmail));
+
+      const occRecords = await OccupiedLesson.find({ weekType, day, lesson }).lean();
+      occupied = occRecords.map(o => ({
+        id: `lesson-${o.weekType}-${o.dayNumber}-${o.periodId}-${o.roomCode}`,
+        roomCode: o.roomCode,
+        subject: o.subject,
+        teacher: o.teacher,
+        dayOfWeek: o.dayNumber,
+        periodId: o.periodId,
+        startTime: o.startTime,
+        endTime: o.endTime,
+        isStudy: false
+      }));
     }
 
     res.json({
@@ -325,7 +390,9 @@ async function handleSinglePeriodRequest(weekType, dayParam, lessonParam, reques
       lesson,
       periodId: `p${lesson}`,
       count: rooms.length,
-      rooms
+      rooms,
+      occupiedLessons: occupied,
+      allLessons: occupied
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -353,9 +420,11 @@ async function handleWeekFullRequest(weekType, requestingUserEmail, res) {
   try {
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
     let records = [];
+    let occupiedRecords = [];
 
     if (isAtlasConnected) {
       records = await FreeRoom.find({ weekType }).lean();
+      occupiedRecords = await OccupiedLesson.find({ weekType }).lean();
     }
 
     // Build hierarchical structure: Day -> Period 1..5 -> Free Rooms
@@ -382,12 +451,26 @@ async function handleWeekFullRequest(weekType, requestingUserEmail, res) {
       }
     }
 
+    const flatOccupied = occupiedRecords.map(o => ({
+      id: `lesson-${o.weekType}-${o.dayNumber}-${o.periodId}-${o.roomCode}`,
+      roomCode: o.roomCode,
+      subject: o.subject,
+      teacher: o.teacher,
+      dayOfWeek: o.dayNumber,
+      periodId: o.periodId,
+      startTime: o.startTime,
+      endTime: o.endTime,
+      isStudy: false
+    }));
+
     res.json({
       success: true,
       week: weekType,
       count: flatRooms.length,
       hierarchy: hierarchical,
-      studyRooms: flatRooms // Flat array for matrix grid compatibility
+      studyRooms: flatRooms,
+      occupiedLessons: flatOccupied,
+      allLessons: flatOccupied
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -395,7 +478,7 @@ async function handleWeekFullRequest(weekType, requestingUserEmail, res) {
 }
 
 // ==========================================
-// 5. Backend Arbor Authentication & Scraper Engine
+// 6. Backend Arbor Authentication & Scraper Engine
 // ==========================================
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -466,13 +549,12 @@ app.post('/api/auth/login', async (req, res) => {
     const displayName = userProfile.display_name || cleanUser.split('@')[0].toUpperCase();
 
     // 3. Resolve Student ID
-    let studentId = 10433; // Default known Wrenn student ID
+    let studentId = 10433;
     if (userProfile.calendarUrl) {
       const match = userProfile.calendarUrl.match(/student-id\/(\d+)/);
       if (match) studentId = parseInt(match[1], 10);
     }
 
-    // If Guardian, discover student ID from Dashboard layout
     if (userType === 'guardian') {
       try {
         const dashRes = await fetch(`${cleanUrl}/guardians/home-ui/dashboard`, {
@@ -494,12 +576,12 @@ app.post('/api/auth/login', async (req, res) => {
 
     console.log(`[AUTH] User "${displayName}" (${userType}) logged in. Student ID: ${studentId}`);
 
-    // 4. Scrape Timetable & Extract Free Study Rooms
+    // 4. Scrape Timetable & Extract Free Study Rooms + Occupied Classes
     const discoveredStudyRooms = await scrapeTimetableForUser(cleanUrl, cookieHeader, userType, studentId, cleanUser);
 
     res.json({
       success: true,
-      message: `Logged in as ${displayName}. Ingested ${discoveredStudyRooms.length} study room slots into MongoDB Atlas.`,
+      message: `Logged in as ${displayName}. Synchronized study spaces into MongoDB Atlas.`,
       user: {
         username: cleanUser,
         displayName,
@@ -540,7 +622,6 @@ async function scrapeTimetableForUser(cleanUrl, cookieHeader, userType, studentI
       const daySlug = dayNames[dayOffset];
       const dayNum = dayOffset + 1;
 
-      // Use Guardian or Student widget endpoint
       const widgetUrl = userType === 'guardian'
         ? `${cleanUrl}/guardians/widget-data/get-calendar-data/student-id/${studentId}/date/${dateStr}`
         : `${cleanUrl}/students/widget-data/get-calendar-data/student-id/${studentId}/date/${dateStr}`;
@@ -563,38 +644,65 @@ async function scrapeTimetableForUser(cleanUrl, cookieHeader, userType, studentI
             const rawRoom = fields.location?.value || '';
             const subject = fields.title?.value || '';
             const start = fields.start_datetime?.value ? fields.start_datetime.value.split(' ')[1].substring(0, 5) : '';
+            const end = fields.end_datetime?.value ? fields.end_datetime.value.split(' ')[1].substring(0, 5) : '';
 
             const cleanCode = cleanRoomCode(rawRoom);
             const period = matchTimeToPeriod(start);
 
-            if (period && cleanCode && isStudySubject(subject, cleanCode)) {
-              const doc = {
-                weekType: wk.type,
-                day: daySlug,
-                dayNumber: dayNum,
-                dayName: properDayNames[dayOffset],
-                lesson: period.number,
-                periodId: period.id,
-                roomCode: cleanCode,
-                subject: subject || '6th Form Study',
-                supervisor: 'Study Supervisor',
-                isManual: false,
-                updatedAt: new Date()
-              };
+            if (period && cleanCode) {
+              if (isStudySubject(subject, cleanCode)) {
+                // Study Room
+                const doc = {
+                  weekType: wk.type,
+                  day: daySlug,
+                  dayNumber: dayNum,
+                  dayName: properDayNames[dayOffset],
+                  lesson: period.number,
+                  periodId: period.id,
+                  roomCode: cleanCode,
+                  subject: subject || '6th Form Study',
+                  supervisor: 'Study Supervisor',
+                  isManual: false,
+                  updatedAt: new Date()
+                };
 
-              if (isAtlasConnected) {
-                // Non-destructive upsert: Adds user email to contributedByEmails array without duplicating
-                await FreeRoom.findOneAndUpdate(
-                  { weekType: wk.type, day: daySlug, lesson: period.number, roomCode: cleanCode },
-                  {
-                    $set: doc,
-                    $setOnInsert: { createdAt: new Date() },
-                    $addToSet: { contributedByEmails: userEmail.toLowerCase().trim() }
-                  },
-                  { upsert: true, new: true }
-                );
+                if (isAtlasConnected) {
+                  await FreeRoom.findOneAndUpdate(
+                    { weekType: wk.type, day: daySlug, lesson: period.number, roomCode: cleanCode },
+                    {
+                      $set: doc,
+                      $setOnInsert: { createdAt: new Date() },
+                      $addToSet: { contributedByEmails: userEmail.toLowerCase().trim() }
+                    },
+                    { upsert: true, new: true }
+                  );
+                }
+                ingestedDocs.push(doc);
+              } else {
+                // Occupied Teaching Lesson
+                const occDoc = {
+                  weekType: wk.type,
+                  day: daySlug,
+                  dayNumber: dayNum,
+                  dayName: properDayNames[dayOffset],
+                  lesson: period.number,
+                  periodId: period.id,
+                  roomCode: cleanCode,
+                  subject: subject,
+                  teacher: 'Class Teacher',
+                  startTime: start,
+                  endTime: end,
+                  updatedAt: new Date()
+                };
+
+                if (isAtlasConnected) {
+                  await OccupiedLesson.findOneAndUpdate(
+                    { weekType: wk.type, day: daySlug, lesson: period.number, roomCode: cleanCode },
+                    { $set: occDoc },
+                    { upsert: true, new: true }
+                  );
+                }
               }
-              ingestedDocs.push(doc);
             }
           }
         }
@@ -604,7 +712,7 @@ async function scrapeTimetableForUser(cleanUrl, cookieHeader, userType, studentI
     }
   }
 
-  // Also query multiday calendar grid to capture any extra schedule entries
+  // Also query multiday calendar grid to capture staff tooltips
   try {
     for (const wk of weeks) {
       const startStr = formatDateISO(wk.monday);
@@ -653,13 +761,13 @@ async function scrapeTimetableForUser(cleanUrl, cookieHeader, userType, studentI
 
               if (tMatch && titMatch) {
                 const startTime = tMatch[1].trim().split(/\s*-\s*/)[0];
+                const endTime = tMatch[1].trim().split(/\s*-\s*/)[1] || '';
                 const subject = titMatch[1].trim();
                 const period = matchTimeToPeriod(startTime);
 
-                if (period && isStudySubject(subject, '')) {
-                  // Fetch Tooltip for exact Room & Supervisor
+                if (period) {
                   let roomCode = '';
-                  let staffName = 'Study Supervisor';
+                  let staffName = 'Class Teacher';
                   const tooltipUrl = userType === 'guardian'
                     ? `${cleanUrl}/guardians/calendar-entry/tooltip/id/${evId}`
                     : `${cleanUrl}/students/calendar-entry/tooltip/id/${evId}`;
@@ -679,32 +787,57 @@ async function scrapeTimetableForUser(cleanUrl, cookieHeader, userType, studentI
 
                   const clean = cleanRoomCode(roomCode || subject);
                   if (clean) {
-                    const doc = {
-                      weekType: wk.type,
-                      day: daySlug,
-                      dayNumber: dNum,
-                      dayName: properDayNames[dayOffset],
-                      lesson: period.number,
-                      periodId: period.id,
-                      roomCode: clean,
-                      subject: subject || '6th Form Study',
-                      supervisor: staffName,
-                      isManual: false,
-                      updatedAt: new Date()
-                    };
+                    if (isStudySubject(subject, clean)) {
+                      const doc = {
+                        weekType: wk.type,
+                        day: daySlug,
+                        dayNumber: dNum,
+                        dayName: properDayNames[dayOffset],
+                        lesson: period.number,
+                        periodId: period.id,
+                        roomCode: clean,
+                        subject: subject || '6th Form Study',
+                        supervisor: staffName || 'Study Supervisor',
+                        isManual: false,
+                        updatedAt: new Date()
+                      };
 
-                    if (isAtlasConnected) {
-                      await FreeRoom.findOneAndUpdate(
-                        { weekType: wk.type, day: daySlug, lesson: period.number, roomCode: clean },
-                        {
-                          $set: doc,
-                          $setOnInsert: { createdAt: new Date() },
-                          $addToSet: { contributedByEmails: userEmail.toLowerCase().trim() }
-                        },
-                        { upsert: true, new: true }
-                      );
+                      if (isAtlasConnected) {
+                        await FreeRoom.findOneAndUpdate(
+                          { weekType: wk.type, day: daySlug, lesson: period.number, roomCode: clean },
+                          {
+                            $set: doc,
+                            $setOnInsert: { createdAt: new Date() },
+                            $addToSet: { contributedByEmails: userEmail.toLowerCase().trim() }
+                          },
+                          { upsert: true, new: true }
+                        );
+                      }
+                      ingestedDocs.push(doc);
+                    } else {
+                      const occDoc = {
+                        weekType: wk.type,
+                        day: daySlug,
+                        dayNumber: dNum,
+                        dayName: properDayNames[dayOffset],
+                        lesson: period.number,
+                        periodId: period.id,
+                        roomCode: clean,
+                        subject: subject,
+                        teacher: staffName || 'Class Teacher',
+                        startTime: startTime,
+                        endTime: endTime,
+                        updatedAt: new Date()
+                      };
+
+                      if (isAtlasConnected) {
+                        await OccupiedLesson.findOneAndUpdate(
+                          { weekType: wk.type, day: daySlug, lesson: period.number, roomCode: clean },
+                          { $set: occDoc },
+                          { upsert: true, new: true }
+                        );
+                      }
                     }
-                    ingestedDocs.push(doc);
                   }
                 }
               }
@@ -714,14 +847,14 @@ async function scrapeTimetableForUser(cleanUrl, cookieHeader, userType, studentI
       }
     }
   } catch (err) {
-    console.warn('[SCRAPER] Multiday calendar scraper note:', err.message);
+    console.warn('[SCRAPER] Multiday calendar scraper notice:', err.message);
   }
 
   return ingestedDocs;
 }
 
 // ==========================================
-// 6. Admin Endpoints (Hardcoded credentials: localhost@localhost / localhost)
+// 7. Admin Endpoints
 // ==========================================
 app.all(['/api/admin/db', '/api/admin/debug'], async (req, res) => {
   try {
@@ -737,19 +870,26 @@ app.all(['/api/admin/db', '/api/admin/debug'], async (req, res) => {
     }
 
     const records = await FreeRoom.find({}).sort({ weekType: 1, dayNumber: 1, lesson: 1 }).lean();
+    const occupied = await OccupiedLesson.find({}).sort({ weekType: 1, dayNumber: 1, lesson: 1 }).lean();
 
     res.json({
       success: true,
-      count: records.length,
+      freeRoomsCount: records.length,
+      occupiedCount: occupied.length,
       timestamp: new Date().toISOString(),
-      rooms: records
+      rooms: records,
+      occupiedLessons: occupied
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// POST Manual Room Addition: /api/rooms/manual (Supports comma-separated: 6C, 6D)
+// ==========================================
+// 8. Room Add & Delete Endpoints (with Collision Warning)
+// ==========================================
+
+// POST Manual Room Addition: /api/rooms/manual
 app.post('/api/rooms/manual', async (req, res) => {
   try {
     const { roomCode, weekType, week: altWeek, dayOfWeek = 1, periodId = 'p1', notes, userEmail } = req.body;
@@ -757,7 +897,6 @@ app.post('/api/rooms/manual', async (req, res) => {
       return res.status(400).json({ error: 'Room code is required' });
     }
 
-    // Split on commas, slashes, or semicolons (e.g. "6C, 6D" -> ["6C", "6D"])
     const rawCodes = String(roomCode).split(/[,;/]+/).map(s => cleanRoomCode(s)).filter(Boolean);
     if (rawCodes.length === 0) {
       return res.status(400).json({ error: 'Valid alphanumeric room code is required' });
@@ -771,6 +910,26 @@ app.post('/api/rooms/manual', async (req, res) => {
     const rawWeek = weekType || altWeek || 'A';
     const week = String(rawWeek).toUpperCase() === 'B' ? 'B' : 'A';
     const submitterEmail = String(userEmail || 'student@wrennschool.org.uk').toLowerCase().trim();
+    const isAdmin = submitterEmail === 'localhost@localhost';
+
+    // 1. COLLISION CHECK: Check if room is occupied by a scheduled teaching lesson
+    if (!isAdmin && isAtlasConnected) {
+      for (const clean of rawCodes) {
+        const occupied = await OccupiedLesson.findOne({
+          weekType: week,
+          $or: [{ dayNumber: dNum }, { day: daySlug }],
+          lesson,
+          roomCode: clean
+        });
+
+        if (occupied) {
+          return res.status(409).json({
+            success: false,
+            error: `Room ${clean} is unavailable: occupied by ${occupied.subject}${occupied.teacher ? ` with ${occupied.teacher}` : ''} in Period ${lesson}.`
+          });
+        }
+      }
+    }
 
     const savedRooms = [];
     for (const clean of rawCodes) {
@@ -911,7 +1070,7 @@ app.delete(['/api/rooms/manual/:id', '/api/rooms/:id', '/api/rooms/manual'], asy
 });
 
 // ==========================================
-// 6. Keep-Alive Self-Ping Engine (Prevents Render Sleep)
+// 9. Keep-Alive Self-Ping Engine (Prevents Render Sleep)
 // ==========================================
 const KEEP_ALIVE_INTERVAL = 10 * 60 * 1000; // 10 minutes
 const SELF_URL = process.env.RENDER_EXTERNAL_URL || process.env.SELF_URL || 'https://freeroom-server.onrender.com';

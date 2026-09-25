@@ -21,38 +21,46 @@ export function AddFreeRoomModal() {
   const [periodId, setPeriodId] = useState(periods[0]?.id || 'p1');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   React.useEffect(() => {
     if (isAddFreeRoomModalOpen) {
       setWeek(selectedWeek);
       setDayOfWeek(selectedDay);
       setError(null);
+      setIsSubmitting(false);
     }
   }, [isAddFreeRoomModalOpen, selectedDay, selectedWeek]);
 
   if (!isAddFreeRoomModalOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!roomCode.trim()) return;
+    if (!roomCode.trim() || isSubmitting) return;
 
     setError(null);
-    const result = addManualFreeRoom(
-      roomCode.trim(),
-      Number(dayOfWeek),
-      periodId,
-      notes.trim() || undefined,
-      week
-    );
+    setIsSubmitting(true);
 
-    if (result && !result.success) {
-      setError(result.error || 'Failed to add room.');
-      return;
+    try {
+      const result = await addManualFreeRoom(
+        roomCode.trim(),
+        Number(dayOfWeek),
+        periodId,
+        notes.trim() || undefined,
+        week
+      );
+
+      if (result && !result.success) {
+        setError(result.error || 'Failed to add room.');
+        return;
+      }
+
+      setRoomCode('');
+      setNotes('');
+      setError(null);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setRoomCode('');
-    setNotes('');
-    setError(null);
   };
 
   return (
@@ -213,9 +221,10 @@ export function AddFreeRoomModal() {
             </button>
             <button
               type="submit"
-              className="rounded-xl bg-[#7fb743] px-5 py-2.5 text-xs sm:text-sm font-black text-white hover:bg-[#689934] shadow-2xs cursor-pointer active:scale-95 touch-manipulation"
+              disabled={isSubmitting}
+              className="rounded-xl bg-[#7fb743] px-5 py-2.5 text-xs sm:text-sm font-black text-white hover:bg-[#689934] shadow-2xs cursor-pointer active:scale-95 touch-manipulation disabled:opacity-60"
             >
-              Add Room
+              {isSubmitting ? 'Checking...' : 'Add Room'}
             </button>
           </div>
         </form>

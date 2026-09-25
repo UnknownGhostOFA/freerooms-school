@@ -47,10 +47,11 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify(body),
       });
 
-      if (serverRes.ok) {
-        const data = await serverRes.json();
-        return NextResponse.json(data);
+      const data = await serverRes.json().catch(() => ({}));
+      if (!serverRes.ok) {
+        return NextResponse.json(data, { status: serverRes.status });
       }
+      return NextResponse.json(data);
     } catch {
       // Server not reachable
     }
