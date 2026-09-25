@@ -20,6 +20,13 @@ export function AddFreeRoomModal() {
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (isAddFreeRoomModalOpen) {
+      setDayOfWeek(selectedDay);
+      setError(null);
+    }
+  }, [isAddFreeRoomModalOpen, selectedDay]);
+
   if (!isAddFreeRoomModalOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {

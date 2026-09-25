@@ -20,12 +20,15 @@ export function PeriodDetailModal() {
     allLessons,
     deleteFreeRoom,
     setIsAddFreeRoomModalOpen,
+    studentSession
   } = useArborMatrix();
 
   if (!activePeriodDetails) return null;
 
   const { period, day } = activePeriodDetails;
   const dayName = days.find(d => d.id === day)?.name || 'Monday';
+
+  const isAdmin = studentSession?.email?.toLowerCase().includes('localhost');
 
   // Free Study rooms in this period
   const periodStudyRooms = studyRooms.filter(
@@ -124,11 +127,11 @@ export function PeriodDetailModal() {
                       {room.roomCode}
                     </span>
 
-                    {room.isManual && (
+                    {(room.isManual || isAdmin) && (
                       <button
                         onClick={() => deleteFreeRoom(room.id)}
-                        title="Remove reported room"
-                        className="p-1.5 text-[#78827e] hover:text-[#de3e35] cursor-pointer touch-manipulation"
+                        title="Delete room"
+                        className="p-1.5 text-[#78827e] hover:text-[#de3e35] cursor-pointer touch-manipulation transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

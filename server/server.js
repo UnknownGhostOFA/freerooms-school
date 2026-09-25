@@ -768,21 +768,35 @@ app.post('/api/rooms/manual', async (req, res) => {
   }
 });
 
-// DELETE Manual Room: /api/rooms/manual/:id
-app.delete('/api/rooms/manual/:id', async (req, res) => {
+// DELETE Room: /api/rooms/manual/:id
+app.delete(['/api/rooms/manual/:id', '/api/rooms/:id'], async (req, res) => {
   try {
     const roomId = req.params.id;
-    // Format: room-{weekType}-{dayNumber}-{periodId}-{roomCode}
+    if (!isAtlasConnected) {
+      return res.status(503).json({ error: 'MongoDB Atlas is not connected' });
+    }
+
+    // Pattern 1: room-{weekType}-{dayNumber}-{periodId}-{roomCode}
     const parts = roomId.split('-');
-    if (parts.length >= 5) {
-      const weekType = parts[1];
+    if (parts.length >= 5 && parts[0] === 'room') {
+      const weekType = parts[1].toUpperCase();
       const dayNum = Number(parts[2]);
       const lesson = parseInt(parts[3].replace(/[^0-9]/g, ''), 10);
       const roomCode = cleanRoomCode(parts.slice(4).join('-'));
 
-      if (isAtlasConnected) {
-        await FreeRoom.deleteOne({ weekType, dayNumber: dayNum, lesson, roomCode });
-      }
+      await FreeRoom.deleteOne({ weekType, dayNumber: dayNum, lesson, roomCode });
+    } else {
+      // Pattern 2: match by query params or room code
+      const { weekType, dayOfWeek, periodId, roomCode } = req.query;
+      const clean = cleanRoomCode(roomCode || roomId);
+
+      const query = {};
+      if (clean) query.roomCode = clean;
+      if (weekType) query.weekType = weekType.toUpperCase();
+      if (dayOfWeek) query.dayNumber = Number(dayOfWeek);
+      if (periodId) query.lesson = parseInt(String(periodId).replace(/[^0-9]/g, ''), 10);
+
+      await FreeRoom.deleteMany(query);
     }
 
     res.json({ success: true, message: `Room ${roomId} deleted from MongoDB Atlas` });
