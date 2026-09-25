@@ -1,21 +1,37 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --arbor-green: #005047;
-  --arbor-green-dark: #003d36;
-  --arbor-green-light: #0d685d;
-  --arbor-accent: #00875f;
+  --arbor-green: #7fb743;
+  --arbor-green-dark: #689934;
+  --arbor-green-light: #94cb58;
+  --arbor-accent: #7fb743;
   --arbor-bg: #f4f6f5;
   --arbor-card: #ffffff;
   --arbor-border: #dbe1dd;
   --arbor-text: #1b2129;
   --arbor-muted: #596560;
-  --arbor-study-bg: #e3f5ec;
-  --arbor-study-border: #00875f;
-  --arbor-study-text: #005047;
+  --arbor-study-bg: #fef4e8;
+  --arbor-study-border: #f8a340;
+  --arbor-study-text: #c87010;
   --arbor-class-bg: #eef3f8;
   --arbor-class-border: #b8cddc;
   --arbor-class-text: #1e3a5f;
+}
+
+.dark {
+  --arbor-bg: #121614;
+  --arbor-card: #1a201c;
+  --arbor-border: #28332c;
+  --arbor-text: #f0f4f1;
+  --arbor-muted: #8b9c92;
+  --arbor-study-bg: #2d1d0e;
+  --arbor-study-border: #f8a340;
+  --arbor-study-text: #fbc27b;
+  --arbor-class-bg: #1a232f;
+  --arbor-class-border: #2c3a4d;
+  --arbor-class-text: #93c5fd;
 }
 
 body {
@@ -24,6 +40,7 @@ body {
   font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   margin: 0;
   padding: 0;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Arbor Cal Day Grid Styling */

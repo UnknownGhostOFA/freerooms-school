@@ -291,7 +291,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
           particleCount: 40,
           spread: 50,
           origin: { y: 0.8 },
-          colors: ['#00875f', '#005047', '#10b981'],
+          colors: ['#7fb743', '#59862b', '#94cb58'],
         });
       } catch {}
 

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_URL =
   process.env.BACKEND_API_URL ||
-  process.env.NEXT_PUBLIC_SERVER_URL ||
   (process.env.NODE_ENV === 'production'
     ? 'https://freeroom-server.onrender.com'
     : 'http://localhost:5000');

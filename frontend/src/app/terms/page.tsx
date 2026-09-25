@@ -6,15 +6,15 @@ import { ArrowLeft, ShieldCheck, FileText, Lock, School } from 'lucide-react';
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-[#f4f6f5] text-[#1b2129] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#f4f6f5] dark:bg-[#121614] text-[#1b2129] dark:text-[#f0f4f1] flex flex-col font-sans transition-colors">
       {/* Header */}
-      <header className="bg-[#005047] text-white px-4 py-3 sm:px-6 shadow-xs">
+      <header className="bg-[#7fb743] text-white px-4 py-3 sm:px-6 shadow-xs">
         <div className="mx-auto max-w-4xl flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-white hover:text-emerald-200 transition-colors">
+          <Link href="/" className="flex items-center gap-2 text-white hover:text-white/80 transition-colors">
             <ArrowLeft className="h-4 w-4" />
             <span className="text-xs font-bold uppercase tracking-wider">Back to Matrix</span>
           </Link>
-          <span className="text-xs font-semibold bg-[#0d685d] text-emerald-100 px-2.5 py-0.5 rounded border border-emerald-500/30">
+          <span className="text-xs font-semibold bg-white/20 text-white px-2.5 py-0.5 rounded border border-white/30">
             Terms & Conditions
           </span>
         </div>
@@ -22,35 +22,35 @@ export default function TermsPage() {
 
       {/* Content */}
       <main className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-8">
-        <div className="bg-white rounded-2xl border border-[#dbe1dd] p-6 sm:p-10 shadow-sm space-y-6">
-          <div className="border-b border-[#eaeeec] pb-4">
-            <div className="flex items-center gap-2 text-[#005047] font-bold text-xs uppercase tracking-wider mb-1">
+        <div className="bg-white dark:bg-[#1a201c] rounded-2xl border border-[#dbe1dd] dark:border-[#28332c] p-6 sm:p-10 shadow-sm space-y-6 transition-colors">
+          <div className="border-b border-[#eaeeec] dark:border-[#28332c] pb-4">
+            <div className="flex items-center gap-2 text-[#7fb743] font-bold text-xs uppercase tracking-wider mb-1">
               <FileText className="h-4 w-4" />
               <span>Legal Documentation</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-[#1b2129]">
+            <h1 className="text-2xl sm:text-3xl font-black text-[#1b2129] dark:text-[#f0f4f1]">
               Terms and Conditions
             </h1>
-            <p className="text-xs text-[#596560] mt-1">
+            <p className="text-xs text-[#596560] dark:text-[#8b9c92] mt-1">
               Last updated: September 2026 • FreeRooms School
             </p>
           </div>
 
-          <div className="space-y-5 text-xs sm:text-sm text-[#4d5954] leading-relaxed">
+          <div className="space-y-5 text-xs sm:text-sm text-[#4d5954] dark:text-[#a0b0a6] leading-relaxed">
             <section className="space-y-2">
-              <h2 className="text-base font-bold text-[#1b2129] flex items-center gap-2">
+              <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1] flex items-center gap-2">
                 1. Independent Student Utility Disclaimer
               </h2>
               <p>
                 <strong>FreeRooms School</strong> is an independent, student-developed open utility created solely to assist Sixth Form students at Wrenn School in discovering available private study classrooms.
               </p>
-              <div className="rounded-lg bg-[#f2f5f3] border border-[#dbe1dd] p-3 text-xs text-[#1b2129] font-medium">
+              <div className="rounded-lg bg-[#f2f5f3] dark:bg-[#222c25] border border-[#dbe1dd] dark:border-[#28332c] p-3 text-xs text-[#1b2129] dark:text-[#f0f4f1] font-medium">
                 <em>Disclaimer: FreeRooms is not affiliated with, endorsed by, sponsored by, or officially associated with Wrenn School, Arbor Education, The Key Group, or any educational governing body.</em>
               </div>
             </section>
 
             <section className="space-y-2">
-              <h2 className="text-base font-bold text-[#1b2129]">
+              <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1]">
                 2. API Authorization & Automated Timetable Sync
               </h2>
               <p>
@@ -62,7 +62,7 @@ export default function TermsPage() {
             </section>
 
             <section className="space-y-2">
-              <h2 className="text-base font-bold text-[#1b2129]">
+              <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1]">
                 3. Anonymous Crowdsourced Data Sharing
               </h2>
               <p>
@@ -74,7 +74,7 @@ export default function TermsPage() {
             </section>
 
             <section className="space-y-2">
-              <h2 className="text-base font-bold text-[#1b2129]">
+              <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1]">
                 4. Academic & School Conduct
               </h2>
               <p>
@@ -83,7 +83,7 @@ export default function TermsPage() {
             </section>
 
             <section className="space-y-2">
-              <h2 className="text-base font-bold text-[#1b2129]">
+              <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1]">
                 5. Limitation of Liability
               </h2>
               <p>
@@ -92,16 +92,16 @@ export default function TermsPage() {
             </section>
           </div>
 
-          <div className="pt-6 border-t border-[#eaeeec] flex flex-wrap items-center justify-between gap-4">
+          <div className="pt-6 border-t border-[#eaeeec] dark:border-[#28332c] flex flex-wrap items-center justify-between gap-4">
             <Link
               href="/privacy"
-              className="text-xs font-bold text-[#005047] hover:underline"
+              className="text-xs font-bold text-[#7fb743] hover:underline"
             >
               Read our Privacy Policy →
             </Link>
             <Link
               href="/"
-              className="rounded-xl bg-[#005047] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#003630] transition-colors"
+              className="rounded-xl bg-[#7fb743] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#689934] transition-colors"
             >
               Accept & Return Home
             </Link>

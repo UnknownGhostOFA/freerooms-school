@@ -19,7 +19,7 @@ function LoginScreen() {
     return (
       <div className="min-h-screen bg-[#f4f6f5] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 animate-pulse">
-          <div className="h-10 w-10 rounded-lg bg-[#005047] text-white font-black text-xl flex items-center justify-center shadow-xs">
+          <div className="h-10 w-10 rounded-lg bg-[#7fb743] text-white font-black text-xl flex items-center justify-center shadow-xs">
             A
           </div>
           <span className="text-xs font-bold text-[#596560] tracking-wider uppercase font-mono">

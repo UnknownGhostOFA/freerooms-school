@@ -40,19 +40,22 @@ export function AddFreeRoomModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-2xs p-4 animate-in fade-in duration-150">
-      <div className="relative w-full max-w-md rounded-xl border border-[#dbe1dd] bg-white p-6 shadow-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-[#eaeeec]">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-2xs sm:p-4 animate-in fade-in duration-150">
+      <div className="relative w-full max-w-md rounded-t-3xl sm:rounded-2xl border-t sm:border border-[#dbe1dd] dark:border-[#28332c] bg-white dark:bg-[#1a201c] p-5 sm:p-6 shadow-2xl max-h-[90vh] flex flex-col transition-all">
+        {/* Mobile Swipe Handle Indicator */}
+        <div className="sm:hidden h-1.5 w-12 rounded-full bg-zinc-300 dark:bg-zinc-700 mx-auto mb-3 shrink-0" />
+
+        <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-[#eaeeec] dark:border-[#28332c]">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#e3f5ec] text-[#005047]">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fef4e8] dark:bg-[#2d1d0e] text-[#f8a340] shrink-0">
               <Plus className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-[#1b2129]">
+              <h2 className="text-base font-extrabold text-[#1b2129] dark:text-[#f0f4f1]">
                 Report / Add Free Room
               </h2>
-              <p className="text-xs text-[#596560]">
-                Add an alphanumeric study room code (e.g. 6D, 6B, 22)
+              <p className="text-[11px] sm:text-xs text-[#596560] dark:text-[#8b9c92]">
+                Add an alphanumeric study room (e.g. 6D, 6B, 22)
               </p>
             </div>
           </div>
@@ -61,22 +64,22 @@ export function AddFreeRoomModal() {
               setIsAddFreeRoomModalOpen(false);
               setError(null);
             }}
-            className="rounded p-1 text-[#596560] hover:bg-[#f2f5f3] hover:text-[#1b2129]"
+            className="rounded-lg p-1.5 text-[#596560] dark:text-[#8b9c92] hover:bg-[#f2f5f3] dark:hover:bg-[#222c25] hover:text-[#1b2129] dark:hover:text-white cursor-pointer"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {error && (
-          <div className="mt-4 flex items-start gap-2 rounded-lg bg-[#fff1f0] border border-[#ffccc7] p-3 text-xs text-[#cf1322]">
+          <div className="mt-4 flex items-start gap-2 rounded-xl bg-[#fff1f0] dark:bg-[#321614] border border-[#ffccc7] dark:border-[#5c221e] p-3 text-xs text-[#cf1322] dark:text-[#ff7875]">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-4 space-y-3.5 overflow-y-auto pr-0.5">
           <div>
-            <label className="text-xs font-bold text-[#1b2129]">
+            <label className="text-xs font-bold text-[#1b2129] dark:text-[#f0f4f1]">
               Room Alphanumeric Code *
             </label>
             <input
@@ -88,13 +91,13 @@ export function AddFreeRoomModal() {
                 if (error) setError(null);
               }}
               placeholder="e.g. 6D, 6B, 6F, 6E, 7, 22"
-              className="mt-1 w-full rounded-lg border border-[#dbe1dd] bg-[#fafbfc] px-3 py-2 text-sm font-extrabold uppercase text-[#1b2129] focus:border-[#00875f] focus:bg-white focus:outline-none"
+              className="mt-1 w-full rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-[#fafbfc] dark:bg-[#151b17] px-3.5 py-2.5 text-sm font-black uppercase text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:bg-white dark:focus:bg-[#1a201c] focus:outline-none"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold text-[#1b2129]">
+              <label className="text-xs font-bold text-[#1b2129] dark:text-[#f0f4f1]">
                 Day
               </label>
               <select
@@ -103,16 +106,16 @@ export function AddFreeRoomModal() {
                   setDayOfWeek(Number(e.target.value));
                   if (error) setError(null);
                 }}
-                className="mt-1 w-full rounded-lg border border-[#dbe1dd] bg-[#fafbfc] px-3 py-2 text-xs font-semibold text-[#1b2129] focus:border-[#00875f] focus:bg-white focus:outline-none"
+                className="mt-1 w-full rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-[#fafbfc] dark:bg-[#151b17] px-3 py-2 text-xs font-semibold text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:bg-white dark:focus:bg-[#1a201c] focus:outline-none"
               >
                 {days.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
+                  <option key={d.id} value={d.id} className="dark:bg-[#1a201c]">{d.name}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-[#1b2129]">
+              <label className="text-xs font-bold text-[#1b2129] dark:text-[#f0f4f1]">
                 Period
               </label>
               <select
@@ -121,17 +124,17 @@ export function AddFreeRoomModal() {
                   setPeriodId(e.target.value);
                   if (error) setError(null);
                 }}
-                className="mt-1 w-full rounded-lg border border-[#dbe1dd] bg-[#fafbfc] px-3 py-2 text-xs font-semibold text-[#1b2129] focus:border-[#00875f] focus:bg-white focus:outline-none"
+                className="mt-1 w-full rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-[#fafbfc] dark:bg-[#151b17] px-3 py-2 text-xs font-semibold text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:bg-white dark:focus:bg-[#1a201c] focus:outline-none"
               >
                 {periods.map(p => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.startTime})</option>
+                  <option key={p.id} value={p.id} className="dark:bg-[#1a201c]">{p.name} ({p.startTime})</option>
                 ))}
               </select>
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-bold text-[#1b2129]">
+            <label className="text-xs font-bold text-[#1b2129] dark:text-[#f0f4f1]">
               Notes / Location (optional)
             </label>
             <input
@@ -139,24 +142,24 @@ export function AddFreeRoomModal() {
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="e.g. Sixth form private study block"
-              className="mt-1 w-full rounded-lg border border-[#dbe1dd] bg-[#fafbfc] px-3 py-2 text-xs text-[#1b2129] focus:border-[#00875f] focus:bg-white focus:outline-none"
+              className="mt-1 w-full rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-[#fafbfc] dark:bg-[#151b17] px-3 py-2 text-xs text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:bg-white dark:focus:bg-[#1a201c] focus:outline-none"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#eaeeec]">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#eaeeec] dark:border-[#28332c]">
             <button
               type="button"
               onClick={() => {
                 setIsAddFreeRoomModalOpen(false);
                 setError(null);
               }}
-              className="rounded-lg px-4 py-2 text-xs font-semibold text-[#596560] hover:bg-[#f2f5f3]"
+              className="w-full sm:w-auto rounded-xl px-4 py-2.5 text-xs font-semibold text-[#596560] dark:text-[#8b9c92] hover:bg-[#f2f5f3] dark:hover:bg-[#222c25] cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#005047] px-4 py-2 text-xs font-bold text-white hover:bg-[#003630] active:scale-95 shadow-2xs"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#7fb743] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#689934] active:scale-95 shadow-2xs cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               <span>Add to Matrix</span>

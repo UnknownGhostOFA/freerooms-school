@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateArbor, fetchLiveArborData } from '@/lib/arborAuthService';
-import { Room, Booking } from '@/types';
-import { cleanRoomCode, matchTimeToPeriod, isStudyLesson, DAYS_OF_WEEK } from '@/lib/crowdsourceEngine';
 
 const BACKEND_URL =
   process.env.BACKEND_API_URL ||
-  process.env.NEXT_PUBLIC_SERVER_URL ||
   (process.env.NODE_ENV === 'production'
     ? 'https://freeroom-server.onrender.com'
     : 'http://localhost:5000');
@@ -13,105 +9,60 @@ const BACKEND_URL =
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { schoolUrl, username, password, autoRenew } = body;
+    const { schoolUrl, username, password } = body;
 
-    if (!schoolUrl || !username || !password) {
+    if (!username || !password) {
       return NextResponse.json(
-        { error: 'School URL, username/email, and password are required.' },
+        { error: 'Username/email and password are required.' },
         { status: 400 }
       );
     }
 
-    // Authenticate and acquire session
-    const authResult = await authenticateArbor({
-      schoolUrl,
-      username,
-      password,
-      storePasswordForAutoRenewal: autoRenew !== false,
-    });
-
-    // Fetch initial timetable and room data
-    let liveData: { rooms: Room[]; bookings: Booking[]; syncTime: string } = {
-      rooms: [],
-      bookings: [],
-      syncTime: new Date().toISOString()
-    };
+    // 1. Delegate Authentication & Scraper Engine to Backend Server
     try {
-      liveData = await fetchLiveArborData({
-        schoolUrl,
-        username,
+      const serverRes = await fetch(`${BACKEND_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolUrl: schoolUrl || 'https://wrenn-school.uk.arbor.sc',
+          username: username.trim(),
+          password
+        }),
       });
-    } catch (e) {
-      console.warn('Initial data pull failed after auth:', e);
-    }
 
-    const studentName = username.split('@')[0].toUpperCase();
+      const data = await serverRes.json().catch(() => ({}));
 
-    // Ingest all discovered study rooms into MongoDB Atlas via backend server
-    if (liveData.bookings && liveData.bookings.length > 0) {
-      const studyRoomsToSync: any[] = [];
-
-      for (const b of liveData.bookings) {
-        const clean = cleanRoomCode(b.roomId || '');
-        const isStudy = isStudyLesson(b.subject || '') || clean.startsWith('6');
-        if (!isStudy || !clean) continue;
-
-        const period = matchTimeToPeriod(b.startTime);
-        if (!period) continue; // Skip Form time
-
-        const dayNum = b.dayOfWeek || 1;
-        const dayObj = DAYS_OF_WEEK.find(d => d.id === dayNum) || DAYS_OF_WEEK[0];
-        const week = (b as any).weekType || 'A';
-
-        studyRoomsToSync.push({
-          id: `sync-${week}-${dayNum}-${period.id}-${clean}`,
-          roomCode: clean,
-          weekType: week,
-          dayOfWeek: dayNum,
-          dayName: dayObj.name,
-          periodId: period.id,
-          periodNumber: period.number ?? 1,
-          lessonSubject: b.subject || '6th form study',
-          supervisor: b.teacher || 'Study Supervisor',
-          contributedBy: 'Anonymous Submission',
-          isManual: false,
-        });
+      if (!serverRes.ok || !data.success) {
+        return NextResponse.json(
+          { error: data.error || 'Arbor authentication failed. Check credentials.' },
+          { status: serverRes.status || 401 }
+        );
       }
 
-      if (studyRoomsToSync.length > 0) {
-        try {
-          await fetch(`${BACKEND_URL}/api/rooms/sync-batch`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              studentName,
-              rooms: studyRoomsToSync
-            }),
-          });
-        } catch (syncErr) {
-          console.warn('Batch sync to backend failed:', syncErr);
+      return NextResponse.json({
+        success: true,
+        message: data.message || 'Logged in to Arbor successfully! Timetable updated in DB.',
+        sessionInfo: {
+          schoolUrl: schoolUrl || 'https://wrenn-school.uk.arbor.sc',
+          username: username.trim(),
+          studentName: data.user?.displayName || username.split('@')[0].toUpperCase(),
+          studentId: data.user?.studentId || 10433,
+          userType: data.user?.userType || 'student',
+          lastSync: new Date().toISOString()
         }
-      }
+      });
+    } catch (backendErr: any) {
+      console.warn('Backend server connection failed, checking fallback:', backendErr.message);
+      return NextResponse.json(
+        { error: 'Backend server is temporarily waking up. Please retry in a few seconds.' },
+        { status: 503 }
+      );
     }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Logged in to Arbor successfully! Timetable synced.',
-      sessionInfo: {
-        schoolUrl,
-        username,
-        studentName,
-        lastSync: liveData.syncTime,
-        autoRenew: autoRenew !== false,
-      },
-      rooms: liveData.rooms,
-      bookings: liveData.bookings,
-    });
   } catch (error: any) {
     console.error('Arbor Login Route Error:', error);
     return NextResponse.json(
-      { error: error?.message || 'Login failed. Please check school URL and credentials.' },
-      { status: 401 }
+      { error: error?.message || 'Login failed.' },
+      { status: 500 }
     );
   }
 }

@@ -40,36 +40,36 @@ export function ArborLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f6f5] flex flex-col justify-center items-center px-4 py-8 sm:py-12">
+    <div className="min-h-screen bg-[#f4f6f5] dark:bg-[#121614] flex flex-col justify-center items-center px-4 py-8 sm:py-12 transition-colors">
       {/* Centered Arbor Box */}
-      <div className="w-full max-w-md bg-white rounded-2xl border border-[#dbe1dd] p-6 sm:p-8 shadow-sm">
+      <div className="w-full max-w-md bg-white dark:bg-[#1a201c] rounded-2xl border border-[#dbe1dd] dark:border-[#28332c] p-6 sm:p-8 shadow-sm">
         {/* Header Branding */}
         <div className="text-center pb-4">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#005047] text-white font-black text-2xl shadow-xs">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#7fb743] text-white font-black text-2xl shadow-xs">
             <span>A</span>
           </div>
 
-          <h1 className="mt-3.5 text-xl font-bold text-[#1b2129] tracking-tight">
+          <h1 className="mt-3.5 text-xl font-bold text-[#1b2129] dark:text-[#f0f4f1] tracking-tight">
             Wrenn School
           </h1>
-          <p className="text-xs font-semibold text-[#00875f] mt-0.5">
+          <p className="text-xs font-semibold text-[#7fb743] mt-0.5">
             Arbor FreeRooms • 2-Week Study Matrix
           </p>
         </div>
 
         {/* Separator: Log in using Arbor */}
         <div className="flex items-center gap-3 my-3">
-          <div className="h-px flex-1 bg-[#eaeeec]" />
-          <span className="text-[11px] text-[#596560] font-bold uppercase tracking-wider">
+          <div className="h-px flex-1 bg-[#eaeeec] dark:bg-[#28332c]" />
+          <span className="text-[11px] text-[#596560] dark:text-[#8b9c92] font-bold uppercase tracking-wider">
             Sign In with Arbor
           </span>
-          <div className="h-px flex-1 bg-[#eaeeec]" />
+          <div className="h-px flex-1 bg-[#eaeeec] dark:bg-[#28332c]" />
         </div>
 
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-[#1b2129] mb-1">
+            <label className="block text-xs font-bold text-[#1b2129] dark:text-[#f0f4f1] mb-1">
               School Email / Username
             </label>
             <input
@@ -78,20 +78,20 @@ export function ArborLoginPage() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="e.g. student@wrennschool.org.uk"
-              className="w-full rounded-lg border border-[#dbe1dd] bg-white px-3.5 py-2.5 text-xs text-[#1b2129] focus:border-[#00875f] focus:outline-none placeholder:text-[#78827e]"
+              className="w-full rounded-lg border border-[#dbe1dd] dark:border-[#28332c] bg-white dark:bg-[#151b17] px-3.5 py-2.5 text-xs text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:outline-none placeholder:text-[#78827e] dark:placeholder:text-[#607066]"
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-bold text-[#1b2129]">
+              <label className="block text-xs font-bold text-[#1b2129] dark:text-[#f0f4f1]">
                 Arbor Password
               </label>
               <a
                 href="https://wrenn-school.uk.arbor.sc"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] text-[#00875f] hover:underline"
+                className="text-[11px] text-[#7fb743] hover:underline"
               >
                 Forgot password?
               </a>
@@ -102,13 +102,13 @@ export function ArborLoginPage() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="Enter your Arbor password"
-              className="w-full rounded-lg border border-[#dbe1dd] bg-white px-3.5 py-2.5 text-xs text-[#1b2129] focus:border-[#00875f] focus:outline-none placeholder:text-[#78827e]"
+              className="w-full rounded-lg border border-[#dbe1dd] dark:border-[#28332c] bg-white dark:bg-[#151b17] px-3.5 py-2.5 text-xs text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:outline-none placeholder:text-[#78827e] dark:placeholder:text-[#607066]"
             />
           </div>
 
           {/* 2-Week Sync & API Authorization Notice */}
-          <div className="rounded-xl bg-[#f7faf8] border border-[#dbe1dd] p-3 space-y-2 text-[11px] text-[#4d5954]">
-            <div className="flex items-center gap-1.5 font-bold text-[#005047]">
+          <div className="rounded-xl bg-[#f7faf8] dark:bg-[#151b17] border border-[#dbe1dd] dark:border-[#28332c] p-3 space-y-2 text-[11px] text-[#4d5954] dark:text-[#a0b0a6]">
+            <div className="flex items-center gap-1.5 font-bold text-[#7fb743]">
               <CalendarCheck className="h-3.5 w-3.5" />
               <span>Automatic 2-Week Sync (Week A & Week B)</span>
             </div>
@@ -116,20 +116,20 @@ export function ArborLoginPage() {
               Signing in retrieves your full 2-week study timetable. Study rooms are federated anonymously to the shared cloud database. Passwords are never saved.
             </p>
 
-            <label className="flex items-start gap-2 pt-1.5 border-t border-[#eaeeec] cursor-pointer">
+            <label className="flex items-start gap-2 pt-1.5 border-t border-[#eaeeec] dark:border-[#28332c] cursor-pointer">
               <input
                 type="checkbox"
                 checked={consentGiven}
                 onChange={e => setConsentGiven(e.target.checked)}
-                className="mt-0.5 rounded border-[#dbe1dd] text-[#005047] focus:ring-[#00875f]"
+                className="mt-0.5 rounded border-[#dbe1dd] dark:border-[#28332c] text-[#7fb743] focus:ring-[#7fb743]"
               />
-              <span className="text-[10px] text-[#596560] leading-tight">
+              <span className="text-[10px] text-[#596560] dark:text-[#8b9c92] leading-tight">
                 I authorize timetable sync and agree to the{' '}
-                <Link href="/terms" className="text-[#005047] font-bold underline" target="_blank">
+                <Link href="/terms" className="text-[#7fb743] font-bold underline" target="_blank">
                   Terms
                 </Link>{' '}
                 and{' '}
-                <Link href="/privacy" className="text-[#005047] font-bold underline" target="_blank">
+                <Link href="/privacy" className="text-[#7fb743] font-bold underline" target="_blank">
                   Privacy Policy
                 </Link>
                 .
@@ -139,7 +139,7 @@ export function ArborLoginPage() {
 
           {/* Error message */}
           {errorMessage && (
-            <div className="rounded-lg p-3 bg-[#fdebec] border border-[#f14668] text-xs text-[#9f2f2d] flex items-center gap-2">
+            <div className="rounded-lg p-3 bg-[#fdebec] dark:bg-[#321614] border border-[#f14668] dark:border-[#5c221e] text-xs text-[#9f2f2d] dark:text-[#ff7875] flex items-center gap-2">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{errorMessage}</span>
             </div>
@@ -149,7 +149,7 @@ export function ArborLoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-[#005047] py-3 text-xs font-bold text-white hover:bg-[#003d36] disabled:opacity-50 shadow-2xs active:scale-98 transition-all"
+            className="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-[#7fb743] py-3 text-xs font-bold text-white hover:bg-[#689934] disabled:opacity-50 shadow-2xs active:scale-98 transition-all cursor-pointer"
           >
             {isLoading ? (
               <>
@@ -163,12 +163,12 @@ export function ArborLoginPage() {
         </form>
 
         {/* Footer info links */}
-        <div className="mt-5 pt-4 border-t border-[#eaeeec] text-center text-[11px] text-[#78827e] space-x-3">
-          <Link href="/terms" className="hover:text-[#005047] hover:underline">
+        <div className="mt-5 pt-4 border-t border-[#eaeeec] dark:border-[#28332c] text-center text-[11px] text-[#78827e] dark:text-[#8b9c92] space-x-3">
+          <Link href="/terms" className="hover:text-[#7fb743] hover:underline">
             Terms of Service
           </Link>
           <span>•</span>
-          <Link href="/privacy" className="hover:text-[#005047] hover:underline">
+          <Link href="/privacy" className="hover:text-[#7fb743] hover:underline">
             Privacy Policy
           </Link>
         </div>
