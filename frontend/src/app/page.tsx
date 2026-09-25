@@ -9,6 +9,7 @@ import { ArborLoginPage } from '@/components/arbor/ArborLoginPage';
 import { PeriodDetailModal } from '@/components/arbor/PeriodDetailModal';
 import { AddFreeRoomModal } from '@/components/arbor/AddFreeRoomModal';
 import { CookieConsentBanner } from '@/components/common/CookieConsentBanner';
+import { CustomFooter } from '@/components/common/CustomFooter';
 
 function MainDashboard() {
   const { studentSession, isHydrated } = useArborMatrix();
@@ -45,26 +46,8 @@ function MainDashboard() {
         <ArborPeriodMatrix />
       </main>
 
-      {/* Clean Minimalist Footer */}
-      <footer className="border-t border-[#dbe1dd] dark:border-[#28332c] bg-white dark:bg-[#1a201c] py-4 text-center text-xs text-[#596560] dark:text-[#8b9c92] transition-colors">
-        <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p>
-            Wrenn School FreeRooms • Arbor 6th Form 2-Week Study Matrix
-          </p>
-          <div className="flex items-center gap-3 text-[#596560] dark:text-[#8b9c92] text-xs">
-            <Link href="/terms" className="hover:text-[#7fb743] hover:underline">
-              Terms & Conditions
-            </Link>
-            <span>•</span>
-            <Link href="/privacy" className="hover:text-[#7fb743] hover:underline">
-              Privacy Policy
-            </Link>
-          </div>
-        </div>
-        <div className="mx-auto max-w-7xl px-4 mt-2 text-[10px] text-[#8c9692] dark:text-[#607066]">
-          Independent student utility. Not affiliated with, endorsed by, or officially associated with Wrenn School or Arbor Education / The Key Group.
-        </div>
-      </footer>
+      {/* Custom Big Typography & Info Footer */}
+      <CustomFooter />
 
       {/* Modals & Consent */}
       <PeriodDetailModal />
