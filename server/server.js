@@ -40,6 +40,7 @@ const FreeRoomSchema = new mongoose.Schema({
   roomCode: { type: String, required: true, uppercase: true, trim: true },
   subject: { type: String, default: '6th Form Study' },
   supervisor: { type: String, default: 'Study Supervisor' },
+  createdByEmail: { type: String, lowercase: true, trim: true }, // Submitting student's email for ownership check
   contributedByEmails: [{ type: String, lowercase: true, trim: true }], // Debug only - NEVER exposed on public API
   isManual: { type: Boolean, default: false },
   notes: { type: String },
@@ -247,7 +248,19 @@ function isStudySubject(subject, roomCode) {
 }
 
 // Convert Mongoose doc to public API room (stripping internal private contributor emails)
-function toPublicRoom(doc) {
+function toPublicRoom(doc, requestingUserEmail) {
+  const reqEmail = String(requestingUserEmail || '').toLowerCase().trim();
+  const isAdmin = reqEmail === 'localhost@localhost';
+  const isOwner = reqEmail && (
+    (doc.createdByEmail && doc.createdByEmail.toLowerCase() === reqEmail) ||
+    (Array.isArray(doc.contributedByEmails) && doc.contributedByEmails.includes(reqEmail))
+  );
+
+  const createdAtTime = doc.createdAt ? new Date(doc.createdAt).getTime() : Date.now();
+  const isWithin1Hour = (Date.now() - createdAtTime) <= 60 * 60 * 1000;
+  const isLocked = doc.isManual ? !isWithin1Hour : true;
+  const canDelete = isAdmin || (doc.isManual && isOwner && isWithin1Hour);
+
   return {
     id: `room-${doc.weekType}-${doc.dayNumber}-${doc.periodId}-${doc.roomCode}`,
     roomCode: doc.roomCode,
@@ -262,6 +275,10 @@ function toPublicRoom(doc) {
     contributedBy: doc.isManual ? 'Student Submission' : `Arbor (Week ${doc.weekType})`,
     isManual: !!doc.isManual,
     notes: doc.notes,
+    createdAt: doc.createdAt,
+    createdByEmail: isOwner || isAdmin ? doc.createdByEmail : undefined,
+    canDelete,
+    isLocked,
     updatedAt: doc.updatedAt
   };
 }
@@ -283,15 +300,15 @@ app.get('/api/health', (req, res) => {
 
 // GET Specific Period for Day in WeekA: /api/weekA/:day/:lesson
 app.get('/api/weekA/:day/:lesson', async (req, res) => {
-  await handleSinglePeriodRequest('A', req.params.day, req.params.lesson, res);
+  await handleSinglePeriodRequest('A', req.params.day, req.params.lesson, req.query.userEmail, res);
 });
 
 // GET Specific Period for Day in WeekB: /api/weekB/:day/:lesson
 app.get('/api/weekB/:day/:lesson', async (req, res) => {
-  await handleSinglePeriodRequest('B', req.params.day, req.params.lesson, res);
+  await handleSinglePeriodRequest('B', req.params.day, req.params.lesson, req.query.userEmail, res);
 });
 
-async function handleSinglePeriodRequest(weekType, dayParam, lessonParam, res) {
+async function handleSinglePeriodRequest(weekType, dayParam, lessonParam, requestingUserEmail, res) {
   try {
     const day = normalizeDay(dayParam);
     const lesson = normalizeLesson(lessonParam);
@@ -299,7 +316,7 @@ async function handleSinglePeriodRequest(weekType, dayParam, lessonParam, res) {
     let rooms = [];
     if (isAtlasConnected) {
       const records = await FreeRoom.find({ weekType, day, lesson }).lean();
-      rooms = records.map(toPublicRoom);
+      rooms = records.map(r => toPublicRoom(r, requestingUserEmail));
     }
 
     res.json({
@@ -318,22 +335,22 @@ async function handleSinglePeriodRequest(weekType, dayParam, lessonParam, res) {
 
 // GET Week A structured tree / list
 app.get('/api/weekA', async (req, res) => {
-  await handleWeekFullRequest('A', res);
+  await handleWeekFullRequest('A', req.query.userEmail, res);
 });
 
 // GET Week B structured tree / list
 app.get('/api/weekB', async (req, res) => {
-  await handleWeekFullRequest('B', res);
+  await handleWeekFullRequest('B', req.query.userEmail, res);
 });
 
 // GET /api/matrix?week={A|B} & /api/rooms/manual?week={A|B}
 app.get(['/api/matrix', '/api/rooms/manual'], async (req, res) => {
   const rawWeek = req.query.week || req.query.weekType || 'A';
   const week = String(rawWeek).toUpperCase() === 'B' ? 'B' : 'A';
-  await handleWeekFullRequest(week, res);
+  await handleWeekFullRequest(week, req.query.userEmail, res);
 });
 
-async function handleWeekFullRequest(weekType, res) {
+async function handleWeekFullRequest(weekType, requestingUserEmail, res) {
   try {
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
     let records = [];
@@ -356,7 +373,7 @@ async function handleWeekFullRequest(weekType, res) {
 
     const flatRooms = [];
     for (const r of records) {
-      const publicRoom = toPublicRoom(r);
+      const publicRoom = toPublicRoom(r, requestingUserEmail);
       flatRooms.push(publicRoom);
 
       const dayKey = r.day;
@@ -753,6 +770,7 @@ app.post('/api/rooms/manual', async (req, res) => {
     const lesson = periodId ? parseInt(String(periodId).replace(/[^0-9]/g, ''), 10) || 1 : 1;
     const rawWeek = weekType || altWeek || 'A';
     const week = String(rawWeek).toUpperCase() === 'B' ? 'B' : 'A';
+    const submitterEmail = String(userEmail || 'student@wrennschool.org.uk').toLowerCase().trim();
 
     const doc = {
       weekType: week,
@@ -764,8 +782,10 @@ app.post('/api/rooms/manual', async (req, res) => {
       roomCode: clean,
       subject: 'Free Study Room (Student Submission)',
       supervisor: 'Study Supervisor',
+      createdByEmail: submitterEmail,
       isManual: true,
       notes: notes || undefined,
+      createdAt: new Date(),
       updatedAt: new Date()
     };
 
@@ -774,8 +794,7 @@ app.post('/api/rooms/manual', async (req, res) => {
         { weekType: week, day: daySlug, lesson, roomCode: clean },
         {
           $set: doc,
-          $setOnInsert: { createdAt: new Date() },
-          $addToSet: { contributedByEmails: (userEmail || 'manual-submission@freerooms').toLowerCase().trim() }
+          $addToSet: { contributedByEmails: submitterEmail }
         },
         { upsert: true, new: true }
       );
@@ -784,45 +803,88 @@ app.post('/api/rooms/manual', async (req, res) => {
     res.json({
       success: true,
       message: `Room ${clean} added to MongoDB Atlas for Week ${week} ${properDayNames[dNum - 1]} Period ${lesson}`,
-      room: toPublicRoom(doc)
+      room: toPublicRoom(doc, submitterEmail)
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// DELETE Room: /api/rooms/manual/:id
-app.delete(['/api/rooms/manual/:id', '/api/rooms/:id'], async (req, res) => {
+// DELETE Room: /api/rooms/manual/:id (1-Hour Expiration & Ownership Enforced)
+app.delete(['/api/rooms/manual/:id', '/api/rooms/:id', '/api/rooms/manual'], async (req, res) => {
   try {
-    const roomId = req.params.id;
+    const roomId = req.params.id || req.query.id;
+    const reqEmail = String(req.query.userEmail || req.headers['x-user-email'] || req.body?.userEmail || '').toLowerCase().trim();
+
     if (!isAtlasConnected) {
       return res.status(503).json({ error: 'MongoDB Atlas is not connected' });
     }
 
-    // Pattern 1: room-{weekType}-{dayNumber}-{periodId}-{roomCode}
-    const parts = roomId.split('-');
-    if (parts.length >= 5 && parts[0] === 'room') {
-      const weekType = parts[1].toUpperCase();
-      const dayNum = Number(parts[2]);
-      const lesson = parseInt(parts[3].replace(/[^0-9]/g, ''), 10);
-      const roomCode = cleanRoomCode(parts.slice(4).join('-'));
+    const isAdmin = reqEmail === 'localhost@localhost';
 
-      await FreeRoom.deleteOne({ weekType, dayNumber: dayNum, lesson, roomCode });
+    // Locate the document first to check permissions and time limit
+    let query = {};
+    if (roomId) {
+      const parts = roomId.split('-');
+      if (parts.length >= 5 && parts[0] === 'room') {
+        const weekType = parts[1].toUpperCase();
+        const dayNum = Number(parts[2]);
+        const lesson = parseInt(parts[3].replace(/[^0-9]/g, ''), 10);
+        const roomCode = cleanRoomCode(parts.slice(4).join('-'));
+        query = { weekType, dayNumber: dayNum, lesson, roomCode };
+      } else {
+        query = { $or: [{ id: roomId }, { roomCode: cleanRoomCode(roomId) }] };
+      }
     } else {
-      // Pattern 2: match by query params or room code
       const { weekType, dayOfWeek, periodId, roomCode } = req.query;
-      const clean = cleanRoomCode(roomCode || roomId);
-
-      const query = {};
+      const clean = cleanRoomCode(roomCode);
       if (clean) query.roomCode = clean;
-      if (weekType) query.weekType = weekType.toUpperCase();
+      if (weekType) query.weekType = String(weekType).toUpperCase();
       if (dayOfWeek) query.dayNumber = Number(dayOfWeek);
       if (periodId) query.lesson = parseInt(String(periodId).replace(/[^0-9]/g, ''), 10);
-
-      await FreeRoom.deleteMany(query);
     }
 
-    res.json({ success: true, message: `Room ${roomId} deleted from MongoDB Atlas` });
+    const targetRoom = await FreeRoom.findOne(query);
+    if (!targetRoom) {
+      return res.status(404).json({ error: 'Room not found in database' });
+    }
+
+    // Permission Enforcement
+    if (!isAdmin) {
+      if (!targetRoom.isManual) {
+        return res.status(403).json({
+          error: 'Forbidden: Only administrator (localhost) can delete official Arbor timetable rooms.'
+        });
+      }
+
+      const isOwner = reqEmail && (
+        (targetRoom.createdByEmail && targetRoom.createdByEmail.toLowerCase() === reqEmail) ||
+        (Array.isArray(targetRoom.contributedByEmails) && targetRoom.contributedByEmails.includes(reqEmail))
+      );
+
+      if (!isOwner) {
+        return res.status(403).json({
+          error: 'Forbidden: You can only delete manual room submissions that you personally submitted.'
+        });
+      }
+
+      const createdAtTime = targetRoom.createdAt ? new Date(targetRoom.createdAt).getTime() : 0;
+      const ageMs = Date.now() - createdAtTime;
+      const ONE_HOUR_MS = 60 * 60 * 1000;
+
+      if (ageMs > ONE_HOUR_MS) {
+        return res.status(403).json({
+          error: 'Deletion locked: The 1-hour student deletion window for this room has expired. Only administrator (localhost) can delete it.'
+        });
+      }
+    }
+
+    await FreeRoom.deleteOne({ _id: targetRoom._id });
+
+    res.json({
+      success: true,
+      message: `Room ${targetRoom.roomCode} successfully deleted from MongoDB Atlas`
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

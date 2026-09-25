@@ -20,6 +20,10 @@ export interface FreeStudyRoom {
   contributedBy: string;  // e.g. "Student", "Manual"
   isManual?: boolean;
   notes?: string;
+  createdAt?: string | Date;
+  createdByEmail?: string;
+  canDelete?: boolean;
+  isLocked?: boolean;
 }
 
 export interface ClassLesson {

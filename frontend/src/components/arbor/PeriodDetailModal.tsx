@@ -7,7 +7,8 @@ import {
   CheckCircle2,
   Plus,
   Trash2,
-  BookOpen
+  BookOpen,
+  Lock
 } from 'lucide-react';
 
 export function PeriodDetailModal() {
@@ -127,15 +128,20 @@ export function PeriodDetailModal() {
                       {room.roomCode}
                     </span>
 
-                    {(room.isManual || isAdmin) && (
+                    {/* Admin or Original Submitter within 1 Hour */}
+                    {(isAdmin || room.canDelete) ? (
                       <button
                         onClick={() => deleteFreeRoom(room.id)}
-                        title="Delete room"
+                        title={isAdmin ? "Admin Delete (Any Room)" : "Delete Your Submission (1h window)"}
                         className="p-1.5 text-[#78827e] hover:text-[#de3e35] cursor-pointer touch-manipulation transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
-                    )}
+                    ) : room.isManual && room.isLocked ? (
+                      <span title="Locked: 1-hour deletion window expired (Admin only)" className="p-1.5 text-[#a0b0a6]">
+                        <Lock className="h-3.5 w-3.5" />
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               ))}

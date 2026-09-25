@@ -95,9 +95,10 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
   // Background sync fetcher from MongoDB Atlas (Pure DB - NO hardcoded rooms)
   const fetchRemoteRooms = useCallback(async () => {
     try {
+      const emailParam = studentSession?.email ? `&userEmail=${encodeURIComponent(studentSession.email)}` : '';
       const [resA, resB] = await Promise.all([
-        fetch('/api/rooms/manual?week=A').catch(() => null),
-        fetch('/api/rooms/manual?week=B').catch(() => null),
+        fetch(`/api/rooms/manual?week=A${emailParam}`).catch(() => null),
+        fetch(`/api/rooms/manual?week=B${emailParam}`).catch(() => null),
       ]);
 
       if (resA && resA.ok) {
@@ -118,7 +119,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       // Graceful fallback
     }
-  }, []);
+  }, [studentSession?.email]);
 
   // 1. Initial load from localStorage with deployment version check
   useEffect(() => {
@@ -344,7 +345,8 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
       setManualRoomsB(prev => prev.filter(r => r.id !== id));
     }
 
-    fetch(`/api/rooms/manual?id=${encodeURIComponent(id)}`, {
+    const emailParam = studentSession?.email ? `&userEmail=${encodeURIComponent(studentSession.email)}` : '';
+    fetch(`/api/rooms/manual?id=${encodeURIComponent(id)}${emailParam}`, {
       method: 'DELETE',
     })
     .then(() => fetchRemoteRooms())
