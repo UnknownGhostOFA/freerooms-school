@@ -1,8 +1,14 @@
-'use client';
-
-import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft, ShieldCheck, FileText, Lock, School } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: "Terms and Conditions",
+  description: "Terms and conditions for using FreeRooms School live timetable aggregator and study room utility.",
+  alternates: {
+    canonical: '/terms',
+  },
+};
 
 export default function TermsPage() {
   return (
@@ -38,36 +44,36 @@ export default function TermsPage() {
 
           <div className="space-y-5 text-xs sm:text-sm text-[#4d5954] dark:text-[#a0b0a6] leading-relaxed">
             <section className="space-y-2">
-              <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1] flex items-center gap-2">
-                1. Independent Student Utility Disclaimer
-              </h2>
-              <p>
-                <strong>FreeRooms School</strong> is an independent, student-developed open utility created solely to assist Sixth Form students at Wrenn School in discovering available private study classrooms.
-              </p>
-              <div className="rounded-lg bg-[#f2f5f3] dark:bg-[#222c25] border border-[#dbe1dd] dark:border-[#28332c] p-3 text-xs text-[#1b2129] dark:text-[#f0f4f1] font-medium">
-                <em>Disclaimer: FreeRooms is not affiliated with, endorsed by, sponsored by, or officially associated with Wrenn School, Arbor Education, The Key Group, or any educational governing body.</em>
-              </div>
-            </section>
-
-            <section className="space-y-2">
               <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1]">
-                2. API Authorization & Automated Timetable Sync
+                1. Purpose of the Platform
               </h2>
               <p>
-                By providing your school Arbor credentials to sign in, you grant FreeRooms explicit authorization to communicate on your behalf with Wrenn School&apos;s Arbor Management Information System (MIS) to retrieve your 2-week academic schedule (Week A & Week B).
-              </p>
-              <p>
-                This authorization is used strictly and exclusively to identify free study periods and room numbers (such as 6B, 6D, 6F, 22). No personal academic, disciplinary, or attendance records are extracted or stored.
+                FreeRooms School is an independent, open student-built utility designed exclusively to assist Sixth Form students and staff at Wrenn School in identifying vacant study classrooms during designated free periods and independent study blocks.
               </p>
             </section>
 
             <section className="space-y-2">
               <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1]">
-                3. Anonymous Crowdsourced Data Sharing
+                2. Disclaimer & Official Independence
               </h2>
               <p>
-                FreeRooms operates on an anonymous crowdsourcing model. When you log in, designated 6th form private study room allocations are synced to a shared cloud database so other students can see open study spaces.
+                FreeRooms School is <strong>not</strong> an official service of, endorsed by, or operated by Wrenn School, The Key Group, or Arbor Education Ltd. All trademarks and brand names are the property of their respective owners.
               </p>
+            </section>
+
+            <section className="space-y-2">
+              <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1]">
+                3. User Accounts & Arbor Timetable Sync
+              </h2>
+              <p>
+                When connecting your Arbor account, authentication occurs directly and securely with your school&apos;s Arbor MIS server. FreeRooms acts as an ephemeral client proxy.
+              </p>
+            </section>
+
+            <section className="space-y-2">
+              <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1]">
+                4. Anonymous Crowdsourcing
+              </h2>
               <p>
                 All room contributions are published anonymously without any personal attribution, names, or student email addresses.
               </p>
@@ -75,36 +81,12 @@ export default function TermsPage() {
 
             <section className="space-y-2">
               <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1]">
-                4. Academic & School Conduct
+                5. Acceptable Use
               </h2>
               <p>
-                Users must follow all standard school rules, code of conduct, and Sixth Form private study guidelines when using classrooms. FreeRooms does not override staff instructions, classroom reservations, or school timetable modifications.
+                Users agree not to submit false room availability data, disrupt school operations, or attempt unauthorized access to infrastructure.
               </p>
             </section>
-
-            <section className="space-y-2">
-              <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1]">
-                5. Limitation of Liability
-              </h2>
-              <p>
-                FreeRooms is provided on an &quot;AS IS&quot; and &quot;AS AVAILABLE&quot; basis without warranties of any kind. The developers are not liable for any timetable discrepancies, room booking conflicts, or network interruptions.
-              </p>
-            </section>
-          </div>
-
-          <div className="pt-6 border-t border-[#eaeeec] dark:border-[#28332c] flex flex-wrap items-center justify-between gap-4">
-            <Link
-              href="/privacy"
-              className="text-xs font-bold text-[#7fb743] hover:underline"
-            >
-              Read our Privacy Policy →
-            </Link>
-            <Link
-              href="/"
-              className="rounded-xl bg-[#7fb743] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#689934] transition-colors"
-            >
-              Accept & Return Home
-            </Link>
           </div>
         </div>
       </main>

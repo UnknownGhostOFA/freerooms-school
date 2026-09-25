@@ -1,8 +1,14 @@
-'use client';
-
-import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft, ShieldCheck, Lock, EyeOff, Server, Cookie } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description: "Privacy policy and data transparency commitment for FreeRooms School timetable utility.",
+  alternates: {
+    canonical: '/privacy',
+  },
+};
 
 export default function PrivacyPage() {
   return (
@@ -52,76 +58,33 @@ export default function PrivacyPage() {
 
             <section className="space-y-2">
               <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1] flex items-center gap-2">
-                <Lock className="h-4 w-4 text-[#7fb743]" />
-                1. How Login Information is Handled
+                <EyeOff className="h-4 w-4 text-[#7fb743]" />
+                <span>1. What Data We Collect & Store</span>
               </h2>
               <p>
-                When you sign in with your Arbor school credentials:
+                When you connect your Arbor account, the application extracts room numbers and study period times for Week A and Week B.
               </p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Your username and password are sent directly over an encrypted HTTPS connection to Wrenn School&apos;s Arbor authentication endpoint.</li>
-                <li>Once authentication succeeds and temporary session cookies are issued, your password is <strong>immediately purged from active memory</strong>.</li>
-                <li>No credentials are committed to databases, logged to server output, or shared with third parties.</li>
-              </ul>
             </section>
 
             <section className="space-y-2">
               <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1] flex items-center gap-2">
                 <Server className="h-4 w-4 text-[#7fb743]" />
-                2. What Data is Saved on MongoDB Atlas
+                <span>2. How Data Is Processed</span>
               </h2>
               <p>
-                To provide the crowdsourced matrix for other Sixth Form students, FreeRooms only synchronizes non-personal room and period schedule records:
-              </p>
-              <div className="bg-[#fafbfc] dark:bg-[#151b17] border border-[#dbe1dd] dark:border-[#28332c] rounded-lg p-3 font-mono text-xs text-[#1b2129] dark:text-[#f0f4f1]">
-                ✓ Room Codes (e.g. 6B, 6D, 6F, 22)<br />
-                ✓ Period Numbers (Periods 1 to 5)<br />
-                ✓ Day of the Week (Mon – Fri) & Week Type (Week A / Week B)<br />
-                ✗ Zero Student Real Names<br />
-                ✗ Zero Student Email Addresses<br />
-                ✗ Zero Behavior / Attendance / Grade Data
-              </div>
-            </section>
-
-            <section className="space-y-2">
-              <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1] flex items-center gap-2">
-                <EyeOff className="h-4 w-4 text-[#7fb743]" />
-                3. Complete Platform Anonymity
-              </h2>
-              <p>
-                FreeRooms is an anonymous utility. All room submissions and study allocations are published as <em>&quot;Anonymous Submission&quot;</em>. There are no public user profiles, leaderboards, or visible authorship markers.
+                Room numbers (e.g. &ldquo;6D&rdquo;) and period blocks are combined with data from other students to build a real-time vacancy matrix. No personal data is attached to rooms.
               </p>
             </section>
 
             <section className="space-y-2">
               <h2 className="text-base font-bold text-[#1b2129] dark:text-[#f0f4f1] flex items-center gap-2">
                 <Cookie className="h-4 w-4 text-[#7fb743]" />
-                4. Cookies & Local Storage
+                <span>3. Essential Cookies & Local Storage</span>
               </h2>
               <p>
-                We use browser <code className="bg-[#eaeeec] dark:bg-[#28332c] px-1.5 py-0.5 rounded text-xs font-bold text-[#7fb743]">localStorage</code> strictly for functional purposes:
+                We use browser localStorage strictly for retaining your session state locally on your device.
               </p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Remembering your selected academic week (Week A vs Week B).</li>
-                <li>Holding your active login token so you don&apos;t have to log in on every single page navigation.</li>
-                <li>Caching room schedules offline for fast loading.</li>
-              </ul>
             </section>
-          </div>
-
-          <div className="pt-6 border-t border-[#eaeeec] dark:border-[#28332c] flex flex-wrap items-center justify-between gap-4">
-            <Link
-              href="/terms"
-              className="text-xs font-bold text-[#7fb743] hover:underline"
-            >
-              ← View Terms and Conditions
-            </Link>
-            <Link
-              href="/"
-              className="rounded-xl bg-[#7fb743] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#689934] transition-colors"
-            >
-              I Understand & Return Home
-            </Link>
           </div>
         </div>
       </main>
