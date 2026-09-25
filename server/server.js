@@ -326,10 +326,11 @@ app.get('/api/weekB', async (req, res) => {
   await handleWeekFullRequest('B', res);
 });
 
-// GET /api/matrix?week={A|B} (Compatible with Frontend matrix)
-app.get('/api/matrix', async (req, res) => {
-  const week = (req.query.week || 'A').toUpperCase();
-  await handleWeekFullRequest(week === 'B' ? 'B' : 'A', res);
+// GET /api/matrix?week={A|B} & /api/rooms/manual?week={A|B}
+app.get(['/api/matrix', '/api/rooms/manual'], async (req, res) => {
+  const rawWeek = req.query.week || req.query.weekType || 'A';
+  const week = String(rawWeek).toUpperCase() === 'B' ? 'B' : 'A';
+  await handleWeekFullRequest(week, res);
 });
 
 async function handleWeekFullRequest(weekType, res) {
@@ -735,18 +736,23 @@ app.all(['/api/admin/db', '/api/admin/debug'], async (req, res) => {
 // POST Manual Room Addition: /api/rooms/manual
 app.post('/api/rooms/manual', async (req, res) => {
   try {
-    const { roomCode, weekType = 'A', dayOfWeek = 1, periodId = 'p1', notes, userEmail } = req.body;
+    const { roomCode, weekType, week: altWeek, dayOfWeek = 1, periodId = 'p1', notes, userEmail } = req.body;
     if (!roomCode) {
       return res.status(400).json({ error: 'Room code is required' });
     }
 
     const clean = cleanRoomCode(roomCode);
+    if (!clean) {
+      return res.status(400).json({ error: 'Valid alphanumeric room code is required' });
+    }
+
     const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
     const properDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     const dNum = Math.max(1, Math.min(5, Number(dayOfWeek) || 1));
     const daySlug = dayNames[dNum - 1];
     const lesson = periodId ? parseInt(String(periodId).replace(/[^0-9]/g, ''), 10) || 1 : 1;
-    const week = (weekType || 'A').toUpperCase();
+    const rawWeek = weekType || altWeek || 'A';
+    const week = String(rawWeek).toUpperCase() === 'B' ? 'B' : 'A';
 
     const doc = {
       weekType: week,
