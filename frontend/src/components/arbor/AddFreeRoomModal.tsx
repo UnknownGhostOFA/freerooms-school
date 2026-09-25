@@ -13,24 +13,27 @@ export function AddFreeRoomModal() {
     selectedDay,
     selectedWeek,
     addManualFreeRoom,
+    prefilledAddRoomDetails,
+    setPrefilledAddRoomDetails,
   } = useArborMatrix();
 
   const [roomCode, setRoomCode] = useState('');
-  const [week, setWeek] = useState<'A' | 'B'>(selectedWeek);
-  const [dayOfWeek, setDayOfWeek] = useState(selectedDay);
-  const [periodId, setPeriodId] = useState(periods[0]?.id || 'p1');
+  const [week, setWeek] = useState<'A' | 'B'>(prefilledAddRoomDetails?.week || selectedWeek);
+  const [dayOfWeek, setDayOfWeek] = useState(prefilledAddRoomDetails?.day || selectedDay);
+  const [periodId, setPeriodId] = useState(prefilledAddRoomDetails?.periodId || periods[0]?.id || 'p1');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   React.useEffect(() => {
     if (isAddFreeRoomModalOpen) {
-      setWeek(selectedWeek);
-      setDayOfWeek(selectedDay);
+      setWeek(prefilledAddRoomDetails?.week || selectedWeek);
+      setDayOfWeek(prefilledAddRoomDetails?.day || selectedDay);
+      setPeriodId(prefilledAddRoomDetails?.periodId || periods[0]?.id || 'p1');
       setError(null);
       setIsSubmitting(false);
     }
-  }, [isAddFreeRoomModalOpen, selectedDay, selectedWeek]);
+  }, [isAddFreeRoomModalOpen, prefilledAddRoomDetails, selectedDay, selectedWeek, periods]);
 
   if (!isAddFreeRoomModalOpen) return null;
 
@@ -86,6 +89,7 @@ export function AddFreeRoomModal() {
           <button
             onClick={() => {
               setIsAddFreeRoomModalOpen(false);
+              setPrefilledAddRoomDetails(null);
               setError(null);
             }}
             className="rounded-xl p-2 text-[#596560] dark:text-[#8b9c92] hover:bg-[#f2f5f3] dark:hover:bg-[#222c25] hover:text-[#1b2129] dark:hover:text-white cursor-pointer touch-manipulation"
@@ -213,6 +217,7 @@ export function AddFreeRoomModal() {
               type="button"
               onClick={() => {
                 setIsAddFreeRoomModalOpen(false);
+                setPrefilledAddRoomDetails(null);
                 setError(null);
               }}
               className="rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-white dark:bg-[#222c25] px-4 py-2.5 text-xs sm:text-sm font-bold text-[#596560] dark:text-[#a0b0a6] hover:bg-[#f2f5f3] dark:hover:bg-[#2a372f] cursor-pointer touch-manipulation"

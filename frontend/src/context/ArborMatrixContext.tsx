@@ -58,6 +58,8 @@ interface ArborMatrixContextType {
   setActivePeriodDetails: (details: { period: Period; day: number } | null) => void;
   isAddFreeRoomModalOpen: boolean;
   setIsAddFreeRoomModalOpen: (open: boolean) => void;
+  prefilledAddRoomDetails: { week?: 'A' | 'B'; day?: number; periodId?: string } | null;
+  setPrefilledAddRoomDetails: (details: { week?: 'A' | 'B'; day?: number; periodId?: string } | null) => void;
 }
 
 const ArborMatrixContext = createContext<ArborMatrixContextType | undefined>(undefined);
@@ -93,6 +95,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
 
   const [activePeriodDetails, setActivePeriodDetails] = useState<{ period: Period; day: number } | null>(null);
   const [isAddFreeRoomModalOpen, setIsAddFreeRoomModalOpen] = useState(false);
+  const [prefilledAddRoomDetails, setPrefilledAddRoomDetails] = useState<{ week?: 'A' | 'B'; day?: number; periodId?: string } | null>(null);
 
   // Background sync fetcher from MongoDB Atlas (Pure DB - NO hardcoded rooms)
   const fetchRemoteRooms = useCallback(async () => {
@@ -417,6 +420,8 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
         setActivePeriodDetails,
         isAddFreeRoomModalOpen,
         setIsAddFreeRoomModalOpen,
+        prefilledAddRoomDetails,
+        setPrefilledAddRoomDetails,
       }}
     >
       {children}

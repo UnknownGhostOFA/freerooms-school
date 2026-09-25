@@ -20,6 +20,7 @@ export function PeriodDetailModal() {
     allLessons,
     deleteFreeRoom,
     setIsAddFreeRoomModalOpen,
+    setPrefilledAddRoomDetails,
     studentSession
   } = useArborMatrix();
 
@@ -83,6 +84,11 @@ export function PeriodDetailModal() {
               <button
                 onClick={() => {
                   setActivePeriodDetails(null);
+                  setPrefilledAddRoomDetails({
+                    week: selectedWeek,
+                    day,
+                    periodId: period.id
+                  });
                   setIsAddFreeRoomModalOpen(true);
                 }}
                 className="text-xs sm:text-sm font-black text-[#f8a340] hover:text-[#c87010] flex items-center gap-1 cursor-pointer touch-manipulation"
