@@ -47,15 +47,15 @@ export function AddFreeRoomModal() {
 
         <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-[#eaeeec] dark:border-[#28332c]">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fef4e8] dark:bg-[#2d1d0e] text-[#f8a340] shrink-0">
-              <Plus className="h-4 w-4" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#fef4e8] dark:bg-[#2d1d0e] text-[#f8a340] shrink-0">
+              <Plus className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-extrabold text-[#1b2129] dark:text-[#f0f4f1]">
+              <h2 className="text-base sm:text-lg font-black text-[#1b2129] dark:text-[#f0f4f1]">
                 Report / Add Free Room
               </h2>
               <p className="text-[11px] sm:text-xs text-[#596560] dark:text-[#8b9c92]">
-                Add an alphanumeric study room (e.g. 6D, 6B, 22)
+                Add an alphanumeric room (e.g. 6D, 6B, 22)
               </p>
             </div>
           </div>
@@ -64,7 +64,7 @@ export function AddFreeRoomModal() {
               setIsAddFreeRoomModalOpen(false);
               setError(null);
             }}
-            className="rounded-lg p-1.5 text-[#596560] dark:text-[#8b9c92] hover:bg-[#f2f5f3] dark:hover:bg-[#222c25] hover:text-[#1b2129] dark:hover:text-white cursor-pointer"
+            className="rounded-xl p-2 text-[#596560] dark:text-[#8b9c92] hover:bg-[#f2f5f3] dark:hover:bg-[#222c25] hover:text-[#1b2129] dark:hover:text-white cursor-pointer touch-manipulation"
           >
             <X className="h-5 w-5" />
           </button>
@@ -77,27 +77,30 @@ export function AddFreeRoomModal() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-3.5 overflow-y-auto pr-0.5">
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4 overflow-y-auto pr-0.5">
           <div>
-            <label className="text-xs font-bold text-[#1b2129] dark:text-[#f0f4f1]">
+            <label className="text-xs sm:text-sm font-bold text-[#1b2129] dark:text-[#f0f4f1]">
               Room Alphanumeric Code *
             </label>
             <input
               type="text"
               required
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
               value={roomCode}
               onChange={e => {
                 setRoomCode(e.target.value);
                 if (error) setError(null);
               }}
               placeholder="e.g. 6D, 6B, 6F, 6E, 7, 22"
-              className="mt-1 w-full rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-[#fafbfc] dark:bg-[#151b17] px-3.5 py-2.5 text-sm font-black uppercase text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:bg-white dark:focus:bg-[#1a201c] focus:outline-none"
+              className="mt-1.5 w-full rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-[#fafbfc] dark:bg-[#151b17] px-4 py-3 text-base font-black uppercase text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:bg-white dark:focus:bg-[#1a201c] focus:outline-none"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold text-[#1b2129] dark:text-[#f0f4f1]">
+              <label className="text-xs sm:text-sm font-bold text-[#1b2129] dark:text-[#f0f4f1]">
                 Day
               </label>
               <select
@@ -106,7 +109,7 @@ export function AddFreeRoomModal() {
                   setDayOfWeek(Number(e.target.value));
                   if (error) setError(null);
                 }}
-                className="mt-1 w-full rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-[#fafbfc] dark:bg-[#151b17] px-3 py-2 text-xs font-semibold text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:bg-white dark:focus:bg-[#1a201c] focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-[#fafbfc] dark:bg-[#151b17] px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:bg-white dark:focus:bg-[#1a201c] focus:outline-none"
               >
                 {days.map(d => (
                   <option key={d.id} value={d.id} className="dark:bg-[#1a201c]">{d.name}</option>
@@ -115,7 +118,7 @@ export function AddFreeRoomModal() {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-[#1b2129] dark:text-[#f0f4f1]">
+              <label className="text-xs sm:text-sm font-bold text-[#1b2129] dark:text-[#f0f4f1]">
                 Period
               </label>
               <select
@@ -124,7 +127,7 @@ export function AddFreeRoomModal() {
                   setPeriodId(e.target.value);
                   if (error) setError(null);
                 }}
-                className="mt-1 w-full rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-[#fafbfc] dark:bg-[#151b17] px-3 py-2 text-xs font-semibold text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:bg-white dark:focus:bg-[#1a201c] focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-[#fafbfc] dark:bg-[#151b17] px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:bg-white dark:focus:bg-[#1a201c] focus:outline-none"
               >
                 {periods.map(p => (
                   <option key={p.id} value={p.id} className="dark:bg-[#1a201c]">{p.name} ({p.startTime})</option>
@@ -134,7 +137,7 @@ export function AddFreeRoomModal() {
           </div>
 
           <div>
-            <label className="text-xs font-bold text-[#1b2129] dark:text-[#f0f4f1]">
+            <label className="text-xs sm:text-sm font-bold text-[#1b2129] dark:text-[#f0f4f1]">
               Notes / Location (optional)
             </label>
             <input
@@ -142,27 +145,26 @@ export function AddFreeRoomModal() {
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="e.g. Sixth form private study block"
-              className="mt-1 w-full rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-[#fafbfc] dark:bg-[#151b17] px-3 py-2 text-xs text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:bg-white dark:focus:bg-[#1a201c] focus:outline-none"
+              className="mt-1.5 w-full rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-[#fafbfc] dark:bg-[#151b17] px-3.5 py-2.5 text-xs sm:text-sm text-[#1b2129] dark:text-[#f0f4f1] focus:border-[#7fb743] focus:bg-white dark:focus:bg-[#1a201c] focus:outline-none"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#eaeeec] dark:border-[#28332c]">
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#eaeeec] dark:border-[#28332c]">
             <button
               type="button"
               onClick={() => {
                 setIsAddFreeRoomModalOpen(false);
                 setError(null);
               }}
-              className="w-full sm:w-auto rounded-xl px-4 py-2.5 text-xs font-semibold text-[#596560] dark:text-[#8b9c92] hover:bg-[#f2f5f3] dark:hover:bg-[#222c25] cursor-pointer"
+              className="rounded-xl border border-[#dbe1dd] dark:border-[#28332c] bg-white dark:bg-[#222c25] px-4 py-2.5 text-xs sm:text-sm font-bold text-[#596560] dark:text-[#a0b0a6] hover:bg-[#f2f5f3] dark:hover:bg-[#2a372f] cursor-pointer touch-manipulation"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#7fb743] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#689934] active:scale-95 shadow-2xs cursor-pointer"
+              className="rounded-xl bg-[#7fb743] px-5 py-2.5 text-xs sm:text-sm font-black text-white hover:bg-[#689934] shadow-2xs cursor-pointer active:scale-95 touch-manipulation"
             >
-              <Plus className="h-4 w-4" />
-              <span>Add to Matrix</span>
+              Add Room
             </button>
           </div>
         </form>

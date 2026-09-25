@@ -277,10 +277,10 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
       }
 
       const newSession: ArborStudentSession = {
-        name: 'Student',
+        name: data.sessionInfo?.studentName || (email.toLowerCase().includes('localhost') ? 'System Administrator' : 'Student'),
         email: email.trim(),
-        studentId: 10433,
-        schoolUrl,
+        studentId: data.sessionInfo?.studentId || 10433,
+        schoolUrl: schoolUrl || 'https://wrenn-school.uk.arbor.sc',
         loggedInAt: new Date().toISOString(),
       };
 
