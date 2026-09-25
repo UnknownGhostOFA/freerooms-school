@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useArborMatrix } from '@/context/ArborMatrixContext';
-import { Plus, X, AlertCircle } from 'lucide-react';
+import { Plus, X, AlertCircle, Calendar } from 'lucide-react';
 
 export function AddFreeRoomModal() {
   const {
@@ -11,10 +11,12 @@ export function AddFreeRoomModal() {
     periods,
     days,
     selectedDay,
+    selectedWeek,
     addManualFreeRoom,
   } = useArborMatrix();
 
   const [roomCode, setRoomCode] = useState('');
+  const [week, setWeek] = useState<'A' | 'B'>(selectedWeek);
   const [dayOfWeek, setDayOfWeek] = useState(selectedDay);
   const [periodId, setPeriodId] = useState(periods[0]?.id || 'p1');
   const [notes, setNotes] = useState('');
@@ -22,10 +24,11 @@ export function AddFreeRoomModal() {
 
   React.useEffect(() => {
     if (isAddFreeRoomModalOpen) {
+      setWeek(selectedWeek);
       setDayOfWeek(selectedDay);
       setError(null);
     }
-  }, [isAddFreeRoomModalOpen, selectedDay]);
+  }, [isAddFreeRoomModalOpen, selectedDay, selectedWeek]);
 
   if (!isAddFreeRoomModalOpen) return null;
 
@@ -34,7 +37,13 @@ export function AddFreeRoomModal() {
     if (!roomCode.trim()) return;
 
     setError(null);
-    const result = addManualFreeRoom(roomCode.trim(), Number(dayOfWeek), periodId, notes.trim() || undefined);
+    const result = addManualFreeRoom(
+      roomCode.trim(),
+      Number(dayOfWeek),
+      periodId,
+      notes.trim() || undefined,
+      week
+    );
 
     if (result && !result.success) {
       setError(result.error || 'Failed to add room.');
@@ -85,6 +94,7 @@ export function AddFreeRoomModal() {
         )}
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4 overflow-y-auto pr-0.5">
+          {/* Room Code */}
           <div>
             <label className="text-xs sm:text-sm font-bold text-[#1b2129] dark:text-[#f0f4f1]">
               Room Alphanumeric Code *
@@ -105,10 +115,42 @@ export function AddFreeRoomModal() {
             />
           </div>
 
+          {/* Week Selector (Segmented buttons) */}
+          <div>
+            <label className="text-xs sm:text-sm font-bold text-[#1b2129] dark:text-[#f0f4f1] mb-1.5 block">
+              Week Cycle *
+            </label>
+            <div className="grid grid-cols-2 gap-2 bg-[#f2f5f3] dark:bg-[#151b17] p-1 rounded-xl border border-[#dbe1dd] dark:border-[#28332c]">
+              <button
+                type="button"
+                onClick={() => setWeek('A')}
+                className={`py-2 px-3 rounded-lg text-xs sm:text-sm font-black transition-all cursor-pointer touch-manipulation flex items-center justify-center gap-1.5 ${
+                  week === 'A'
+                    ? 'bg-[#7fb743] text-white shadow-2xs'
+                    : 'text-[#596560] dark:text-[#8b9c92] hover:text-[#1b2129] dark:hover:text-white'
+                }`}
+              >
+                <span>Week A</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setWeek('B')}
+                className={`py-2 px-3 rounded-lg text-xs sm:text-sm font-black transition-all cursor-pointer touch-manipulation flex items-center justify-center gap-1.5 ${
+                  week === 'B'
+                    ? 'bg-[#7fb743] text-white shadow-2xs'
+                    : 'text-[#596560] dark:text-[#8b9c92] hover:text-[#1b2129] dark:hover:text-white'
+                }`}
+              >
+                <span>Week B</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Day & Period Pickers */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs sm:text-sm font-bold text-[#1b2129] dark:text-[#f0f4f1]">
-                Day
+                Day *
               </label>
               <select
                 value={dayOfWeek}
@@ -126,7 +168,7 @@ export function AddFreeRoomModal() {
 
             <div>
               <label className="text-xs sm:text-sm font-bold text-[#1b2129] dark:text-[#f0f4f1]">
-                Period
+                Period *
               </label>
               <select
                 value={periodId}
@@ -143,6 +185,7 @@ export function AddFreeRoomModal() {
             </div>
           </div>
 
+          {/* Notes */}
           <div>
             <label className="text-xs sm:text-sm font-bold text-[#1b2129] dark:text-[#f0f4f1]">
               Notes / Location (optional)
@@ -156,6 +199,7 @@ export function AddFreeRoomModal() {
             />
           </div>
 
+          {/* Action buttons */}
           <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#eaeeec] dark:border-[#28332c]">
             <button
               type="button"

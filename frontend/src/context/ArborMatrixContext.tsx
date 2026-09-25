@@ -46,7 +46,7 @@ interface ArborMatrixContextType {
   logoutStudent: () => void;
 
   // Manual Free Room submission (Instant UI update + Anonymous MongoDB Atlas sync)
-  addManualFreeRoom: (roomCode: string, dayOfWeek: number, periodId: string, notes?: string) => { success: boolean; error?: string };
+  addManualFreeRoom: (roomCode: string, dayOfWeek: number, periodId: string, notes?: string, targetWeek?: 'A' | 'B') => { success: boolean; error?: string };
   deleteFreeRoom: (id: string) => void;
 
   // Background Sync
@@ -286,13 +286,14 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
   };
 
   // Add Free Room with Instant UI update & MongoDB Atlas sync
-  const addManualFreeRoom = (roomCode: string, dayOfWeek: number, periodId: string, notes?: string) => {
+  const addManualFreeRoom = (roomCode: string, dayOfWeek: number, periodId: string, notes?: string, targetWeek?: 'A' | 'B') => {
     const cleanCode = cleanRoomCode(roomCode);
     if (!cleanCode) return { success: false, error: 'Room code is required.' };
 
+    const effectiveWeek = targetWeek || selectedWeek;
     const period = WRENN_PERIODS.find(p => p.id === periodId) || WRENN_PERIODS[0];
     const dayObj = DAYS_OF_WEEK.find(d => d.id === dayOfWeek) || DAYS_OF_WEEK[0];
-    const roomId = `room-${selectedWeek}-${dayOfWeek}-${period.id}-${cleanCode}`;
+    const roomId = `room-${effectiveWeek}-${dayOfWeek}-${period.id}-${cleanCode}`;
 
     const newFreeRoom: FreeStudyRoom = {
       id: roomId,
@@ -308,7 +309,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
     };
 
     // Instant local state update
-    if (selectedWeek === 'A') {
+    if (effectiveWeek === 'A') {
       setManualRoomsA(prev => [newFreeRoom, ...prev.filter(r => r.id !== roomId)]);
     } else {
       setManualRoomsB(prev => [newFreeRoom, ...prev.filter(r => r.id !== roomId)]);
@@ -321,7 +322,7 @@ export function ArborMatrixProvider({ children }: { children: ReactNode }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         roomCode: cleanCode,
-        weekType: selectedWeek,
+        weekType: effectiveWeek,
         dayOfWeek,
         periodId: period.id,
         notes,
